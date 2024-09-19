@@ -84,19 +84,29 @@ if __name__ == "__main__":
 
 
 
-    center = DispatchCenter([], [], [], [])
+    center = DispatchCenter([], {}, {}, [])
 
 
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
     edge_data = edge_data.dropna()
+    nodes = []
     for index, row in edge_data.iterrows():
         origin = row['init_node']
         destination = row['term_node']
         capacity = row['capacity']
         length = row['length']
         free_flow_time = row['free_flow_time']
-        center.edges.append({(origin, destination): TN.Edge(origin, destination, capacity, free_flow_time, length, 0.15, 4)})
+        edge = TN.Edge(origin, destination, capacity, free_flow_time, length, 0.15, 4)
+        center.edges[(origin, destination)] = edge
+        if destination not in nodes:
+            nodes.append(destination)
+            center.nodes[destination] = TN.Node(destination, 1, {}, False, 1)
+        else:
+            center.nodes[destination].edge_num += 1
+            signal = 1 / center.nodes[destination].edge_num
+
+
 
 
 
