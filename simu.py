@@ -49,12 +49,12 @@ class ODGenerator:
 
 
 
-class DispatchCenter(TN.Vehicle, TN.Edge, TN.Node, TN.ChargeStation):
-    def __init__(self, vehicles, edges, nodes, charge_stations):
-        self.vehicles = vehicles
-        self.edges = edges
-        self.nodes = nodes
-        self.charge_stations = charge_stations
+# class DispatchCenter:
+#     def __init__(self, vehicles, edges, nodes, charge_stations):
+#         self.vehicles = vehicles
+#         self.edges = edges
+#         self.nodes = nodes
+#         self.charge_stations = charge_stations
 
 
 
@@ -84,30 +84,46 @@ if __name__ == "__main__":
 
 
 
-    center = DispatchCenter([], {}, {}, [])
+    center = TN.DispatchCenter([], {}, {}, [])
 
 
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
     edge_data = edge_data.dropna()
     nodes = []
+    edge_id = 1
     for index, row in edge_data.iterrows():
         origin = row['init_node']
         destination = row['term_node']
         capacity = row['capacity']
         length = row['length']
         free_flow_time = row['free_flow_time']
-        edge = TN.Edge(origin, destination, capacity, free_flow_time, length, 0.15, 4)
-        center.edges[(origin, destination)] = edge
+
         if destination not in nodes:
             nodes.append(destination)
-            center.nodes[destination] = TN.Node(destination, 1, {}, False, 1)
+            center.nodes[destination] = TN.Node(destination, {}, {}, False, 1, [], [])
+            center.nodes[destination].enter.append(edge_id)
+        elif origin not in nodes:
+            nodes.append(origin)
+            center.nodes[origin] = TN.Node(origin, {}, {}, False, 1, [], [])
+            center.nodes[origin].off.append(edge_id)
         else:
+            center.nodes[origin].edge_num += 1
+            center.nodes[origin].signal = 1 / center.nodes[origin].edge_num
             center.nodes[destination].edge_num += 1
-            signal = 1 / center.nodes[destination].edge_num
+            center.nodes[destination].signal = 1 / center.nodes[destination].edge_num
 
+        for n in nodes:
+            for enter in center.nodes[n].enter:
+                for off in center.nodes[n].off:
+                    center.nodes[n].signal[(enter, off)] = (1.5 / (center.nodes[id].edge_num / 2 - 1), 1.5)
 
-
+        edge = TN.Edge(edge_id, center.nodes[origin], center.nodes[destination], length, {}, free_flow_time, length, 0.15, 4)
+        edge_id += 1
+        edge.capacity["all"] = (capacity, 0)
+        for i in edge.destination.off:
+            edge.capacity[i] = (capacity / (edge.destination.edge_num / 2 - 1), 0)
+        center.edges[(origin, destination)] = edge
 
 
 
@@ -115,6 +131,9 @@ if __name__ == "__main__":
     v_index = 0
 
     for i in range(1, 451):
+        for vehicle in center.vehicles:
+            vehicle.drive(vehicle.road)
+
         if i % 10 == 1:
             OD = OD_results[int(i / 15)]
 
@@ -122,13 +141,20 @@ if __name__ == "__main__":
                 choice = path_results[(O, D)][0]
                 if len(choice) > 1:
                     path = choice[random.randint(1, len(choice)) - 1]
-                    center.vehicles.append(TN.Vehicle(v_index, O, D, G.get_edge_data(path[0], path[1])['weight'],
-                                                      (path[0], path[1]), (path[1], path[2]),
-                                                      path, 100, 0.05, 0.15, 0, 0, ))
+                    new_vehicle = TN.Vehicle(v_index, O, D, center.edges[(path[0], path[1])].length,
+                                                    center.edges[(path[0], path[1])],
+                                                    center.edges[(path[1], path[2])],
+                                                    path, 100, 0.05, 0.15, 0, 0, )
+                    center.vehicles.append(new_vehicle)
+                    new_vehicle.drive(new_vehicle.road)
                     v_index += 1
                 elif len(choice) == 1:
                     path = choice[0]
-                    center.vehicles.append(TN.Vehicle(v_index, O, D, G.get_edge_data(path[0], path[1])['weight'],
+                    new_vehicle = TN.Vehicle(v_index, O, D, G.get_edge_data(path[0], path[1])['weight'],
                                                       (path[0], path[1]), (),
-                                                      path, 100, 0.05, 0.15, 0, 0, ))
+                                                      path, 100, 0.05, 0.15, 0, 0, )
+                    center.vehicles.append(new_vehicle)
+                    new_vehicle.drive(new_vehicle.road)
                     v_index += 1
+
+
