@@ -145,6 +145,22 @@ class Edge:
 
 
 
+class Node:
+    def __init__(self, id, signal, wait, is_charge, edge_num, enter, off):
+        #signal = {{fr, to}: {g, C}}, 表示每个方向信号灯所属绿灯时长与总周期时长
+        #wait = {{vid, t}} 表示正在等候的车辆的合集
+        self.id = id
+        self.signal = signal
+        self.wait = wait
+        self.is_charge = is_charge
+        self.edge_num = edge_num
+        self.enter = enter
+        self.off = off
+
+
+
+
+
 
 
 class ChargeStation:
@@ -168,12 +184,16 @@ class ChargeStation:
                 if time > t:
                     time -= t
                 else:
-                    time = 0
+                    time -= time
                     v = self.center.vehicles[id]
+                    self.charge[p].remove((v.id, time))
                     v.leave_charge()
 
             while len(self.charge[p]) < n and self.queue[p]:
-                self.charge[p].append(self.queue[p][0])
+                v_id = self.queue[p][0]
+                e = self.center.vehicles[v_id].E
+                e_max = self.center.vehicles[v_id].Emax
+                self.charge[p].append((v_id, (e_max - e) / p))
                 self.queue[p].pop(0)
 
     def check(self):
