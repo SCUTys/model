@@ -1,8 +1,10 @@
-
+import random
 
 
 t = 1 #min
 T = 30 #min
+k = 1
+cs = [10, 11, 16, 22]
 
 
 class DispatchCenter:  #存储所有的数据，并且调度充电车辆
@@ -24,7 +26,37 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
     def charge_station(self):
         return self.charge_stations
 
-    def dispatch(self):
+    def calculate_lost(self):
+        sum_road = 0
+        for edge in self.edges:
+            sum_road += edge.capacity["all"] * edge.calculate_drive()
+        for node in self.nodes:
+            for i, is_wait in node.wait:
+                sum_road += is_wait
+        for charge_station in self.charge_stations:
+            for i, time in charge_station.charge:
+                sum_road += time
+            for p, n in charge_station.pile:
+                length = len(charge_station.queue[p])
+                for i, time in charge_station.queue[p]:
+                    sum_road += length * time
+        return sum_road
+
+
+    def dispatch(self, charging_vehicles, path_results):
+        for v in charging_vehicles:
+            v.charge = cs[random.randint(0, len(cs) - 1)]  ##这里没并算法就写个随机数吧
+            path1 = path_results[(v.origin, v.charge)][0]
+            path2 = path_results[(v.charge, v.destination)][0]
+            if len(path1) > 1:
+                path_1 = path1[random.randint(0, len(path1) - 1)].pop()
+            else:
+                path_1 = path1[0].pop()
+            if len(path2) > 1:
+                path_2 = path2[random.randint(0, len(path2) - 1)]
+            else:
+                path_2 = path2[0]
+            v.path = path_1 + path_2
         return
 
 
@@ -50,13 +82,21 @@ class Vehicle:
 
     def drive(self, rate=1):
         road = self.center.edges[self.road]
+        print(road.id)
         drive_distance = road.calculate_drive() * rate
+        print(drive_distance)
         if drive_distance < self.distance:
             self.distance -= drive_distance
             self.E -= drive_distance * self.Edrive
         else:
             self.E -= self.distance * self.Edrive
             self.distance = 0
+            if self.check_destination():
+                road = self.center.edges[self.road]
+                next_road = self.center.edges[self.next_road]
+                road.capacity[next_road.id][1] -= 1
+                road.capacity["all"][1] -= 1
+                self.center.vehicles.pop(self.id)
             if not self.check_charge():
                 self.wait(road.id, self.center.edges[self.next_road].id, self.distance / drive_distance)
             else:
@@ -113,15 +153,20 @@ class Vehicle:
             if self.id == i:
                 charge.dispatch.remove((i, a))
                 charge.q_length += 1
-                charge.queue[self.charge[1]].append(self.id)
+                charge.queue[self.charge[1]].append((self.id, 0))
 
 
     def leave_charge(self):
         self.charging = False
+        self.charge = 0
         self.change_road()
 
 
-
+    def check_destination(self):
+        if self.distance == 0 and self.center.edges[self.road].destination == self.destination:
+            return True
+        else:
+            return False
 
 
 
@@ -146,10 +191,11 @@ class Edge:
 
 
 class Node:
-    def __init__(self, id, signal, wait, is_charge, edge_num, enter, off):
+    def __init__(self, id, center, signal, wait, is_charge, edge_num, enter, off):
         #signal = {{fr, to}: {g, C}}, 表示每个方向信号灯所属绿灯时长与总周期时长
         #wait = {{vid, t}} 表示正在等候的车辆的合集
         self.id = id
+        self.center = center
         self.signal = signal
         self.wait = wait
         self.is_charge = is_charge
@@ -160,14 +206,11 @@ class Node:
 
 
 
-
-
-
 class ChargeStation:
     def __init__(self, id, center, dispatch, charge, queue, capacity, pile):
         #dispatch = {{v, atime}} 表示分配到该站点但仍未到达的车辆，按预计到达时间排序
         #charge = {power:{id, t}} 表示正在充电的车辆
-        #queue = {power:{id}} 表示正在站内排队等候充电的队列
+        #queue = {power:{id, t}} 表示正在站内排队等候充电的队列
         #pile = ({power, num}) 表示站内充电桩功率与数量
         self.id = id
         self.center = center
@@ -195,6 +238,10 @@ class ChargeStation:
                 e_max = self.center.vehicles[v_id].Emax
                 self.charge[p].append((v_id, (e_max - e) / p))
                 self.queue[p].pop(0)
+
+            for i, t in self.queue.items():
+                t += 1
+
 
     def check(self):
         charge_sum = sum(len(v) for v in self.charge.values())
