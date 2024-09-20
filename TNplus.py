@@ -28,12 +28,12 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
 
     def calculate_lost(self):
         sum_road = 0
-        for edge in self.edges:
+        for edge in self.edges.values():
             sum_road += edge.capacity["all"] * edge.calculate_drive()
-        for node in self.nodes:
+        for node in self.nodes.values():
             for i, is_wait in node.wait:
                 sum_road += is_wait
-        for charge_station in self.charge_stations:
+        for charge_station in self.charge_stations.values():
             for i, time in charge_station.charge:
                 sum_road += time
             for p, n in charge_station.pile:
