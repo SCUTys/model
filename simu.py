@@ -8,7 +8,7 @@ import loaddata as ld
 import random
 
 standard_speed = 60 #km/h
-t = 10 #min
+t = 1 #min
 T = 30 #min
 csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     for index, row in edge_data.iterrows():
         origin = row['init_node']
         destination = row['term_node']
-        capacity = row['capacity']
+        capacity = row['capacity'] / 1000
         length = row['length']
         free_flow_time = row['free_flow_time']
 
@@ -132,7 +132,12 @@ if __name__ == "__main__":
 
     for i in range(1, 451):
         for vehicle in center.vehicles:
-            vehicle.drive(vehicle.road)
+            if vehicle.charging == False and vehicle.is_wait > 0:
+                vehicle.wait(vehicle.road, vehicle.road.id, vehicle.next_road.id)
+            elif vehicle.charging:
+                continue
+            else:
+                vehicle.drive(vehicle.road)
 
         if i % 10 == 1:
             OD = OD_results[int(i / 15)]
@@ -144,7 +149,7 @@ if __name__ == "__main__":
                     new_vehicle = TN.Vehicle(v_index, O, D, center.edges[(path[0], path[1])].length,
                                                     center.edges[(path[0], path[1])],
                                                     center.edges[(path[1], path[2])],
-                                                    path, 100, 0.05, 0.15, 0, 0, )
+                                                    path, 100, 80, 0.05, 0.15, 0, 0, )
                     center.vehicles.append(new_vehicle)
                     new_vehicle.drive(new_vehicle.road)
                     v_index += 1
@@ -152,9 +157,11 @@ if __name__ == "__main__":
                     path = choice[0]
                     new_vehicle = TN.Vehicle(v_index, O, D, G.get_edge_data(path[0], path[1])['weight'],
                                                       (path[0], path[1]), (),
-                                                      path, 100, 0.05, 0.15, 0, 0, )
+                                                      path, 100, 80, 0.05, 0.15, 0, 0, )
                     center.vehicles.append(new_vehicle)
                     new_vehicle.drive(new_vehicle.road)
                     v_index += 1
 
+        for cs in center.charge_stations:
+            cs.process()
 
