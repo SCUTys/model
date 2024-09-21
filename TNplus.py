@@ -43,20 +43,41 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
         return sum_road
 
 
-    def dispatch(self, charging_vehicles, path_results):
+    def dispatch(self, charging_vehicles, path_results, t):
         for v in charging_vehicles:
-            v.charge = cs[random.randint(0, len(cs) - 1)]  ##这里没并算法就写个随机数吧
-            path1 = path_results[(v.origin, v.charge)][0]
-            path2 = path_results[(v.charge, v.destination)][0]
+            vehicle = self.vehicles[v]
+            c_index = cs[random.randint(0, len(cs) - 1)]
+            vehicle.charge = (c_index,  list(self.charge_stations[c_index].pile.keys())[0]) ##这里没并算法就写个随机数吧
+            path1 = path_results[(vehicle.origin, vehicle.charge)][0]
+            path2 = path_results[(vehicle.charge, vehicle.destination)][0]
             if len(path1) > 1:
-                path_1 = path1[random.randint(0, len(path1) - 1)].pop()
+                path11 = path1[random.randint(0, len(path1) - 1)].pop()
             else:
-                path_1 = path1[0].pop()
+                path11 = path1[0].pop()
             if len(path2) > 1:
-                path_2 = path2[random.randint(0, len(path2) - 1)]
+                path22 = path2[random.randint(0, len(path2) - 1)]
             else:
-                path_2 = path2[0]
-            v.path = path_1 + path_2
+                path22 = path2[0]
+            path = path11 + path22
+            true_path = []
+            true_path1 = []
+            for i in range(0, len(path11) - 1):
+                for edge in self.edges.values():
+                    if edge.origin == path[i] and edge.destination == path[i + 1]:
+                        true_path1.append(edge.id)
+            for i in range(0, len(path) - 1):
+                for edge in self.edges.values():
+                    if edge.origin == path[i] and edge.destination == path[i + 1]:
+                        true_path1.append(edge.id)
+            vehicle.path = true_path
+            vehicle.distance =self.edges[true_path[0]].length
+            vehicle.road =true_path[0]
+            vehicle.next_road = true_path[1]
+            time = 0
+            for i in true_path1:
+                time += self.edges[i].calculate_drive()
+            self.charge_stations[vehicle.charge].dispatch[v] = t + time
+            vehicle.drive()
         return
 
 
@@ -68,7 +89,7 @@ class Vehicle:
         self.origin = origin
         self.destination = destination #Node id
         self.distance = distance
-        self.road = road  #二元组，（O, D）
+        self.road = road   #id
         self.next_road = next_road
         self.path = path
         self.Emax = Emax  #电池最大容量
@@ -82,9 +103,9 @@ class Vehicle:
 
     def drive(self, rate=1):
         road = self.center.edges[self.road]
-        print(road.id)
+        # print(road.id)
         drive_distance = road.calculate_drive() * rate
-        print(drive_distance)
+        # print(drive_distance)
         if drive_distance < self.distance:
             self.distance -= drive_distance
             self.E -= drive_distance * self.Edrive
@@ -96,9 +117,9 @@ class Vehicle:
                 next_road = self.center.edges[self.next_road]
                 road.capacity[next_road.id][1] -= 1
                 road.capacity["all"][1] -= 1
-                self.center.vehicles.pop(self.id)
-            if not self.check_charge():
-                self.wait(road.id, self.center.edges[self.next_road].id, self.distance / drive_distance)
+                self.road -= -1
+            elif not self.check_charge() and self.next_road != -1:
+                self.wait(self.road, self.next_road, self.distance / drive_distance)
             else:
                 self.enter_charge()
 
@@ -122,21 +143,22 @@ class Vehicle:
 
 
     def change_road(self):
-        road = self.center.edges[self.road]
-        next_road = self.center.edges[self.next_road]
-        road.capacity[next_road.id][1] -= 1
-        road.capacity["all"][1] -= 1
-
-        self.road = self.next_road
         if self.index < len(self.path):
-            self.index += 1
-        self.next_road = self.path[self.index]
+            road = self.center.edges[self.road]
+            next_road = self.center.edges[self.next_road]
+            road.capacity[next_road.id][1] -= 1
+            road.capacity["all"][1] -= 1
 
-        road = self.center.edges[self.road]
-        next_road = self.center.edges[self.next_road]
-        self.distance = road.length
-        road.capacity["all"][1] -= 1
-        road.capacity[next_road.id][1] += 1
+            self.road = self.next_road
+
+            self.index += 1
+            self.next_road = self.path[self.index]
+
+            road = self.center.edges[self.road]
+            next_road = self.center.edges[self.next_road]
+            self.distance = road.length
+            road.capacity["all"][1] += 1
+            road.capacity[next_road.id][1] += 1
 
 
     def check_charge(self):
@@ -208,11 +230,11 @@ class Node:
 
 class ChargeStation:
     def __init__(self, id, center, dispatch, charge, queue, capacity, pile):
-        #dispatch = {{v, atime}} 表示分配到该站点但仍未到达的车辆，按预计到达时间排序
+        #dispatch = {v: atime} 表示分配到该站点但仍未到达的车辆，按预计到达时间排序
         #charge = {power:{id, t}} 表示正在充电的车辆
         #queue = {power:{id, t}} 表示正在站内排队等候充电的队列
-        #pile = ({power, num}) 表示站内充电桩功率与数量
-        self.id = id
+        #pile = (power:num) 表示站内充电桩功率与数量
+        self.id = id    #这里假设和路口一致
         self.center = center
         self.dispatch = dispatch
         self.charge = charge
