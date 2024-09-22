@@ -65,29 +65,20 @@ if __name__ == "__main__":
     # print(od_pairs)
     processor = PathProcessor(csv_net_path, od_pairs)
     G = processor.build_graph(csv_net_path)
-    # print(G)
     path_results = processor.process_paths()
-    # print(path_results)
 
     generator = ODGenerator(csv_od_path)
     data = generator.load()
     OD_results = generator.distribute_od_pairs(data, 100)
-    # print(OD_results)
-    # for i in range(len(OD_results)):
-    #     print(i, len(OD_results[i]))
 
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
     edge_data = edge_data.dropna()
-    nodes = []
-    edge_id = 1
-
-
-
 
 
     center = TNplus.DispatchCenter([], {}, {}, {})
-
+    nodes = []
+    edge_id = 1
 
     for index, row in edge_data.iterrows():
         origin = int(row['init_node'])
@@ -98,15 +89,16 @@ if __name__ == "__main__":
 
         if destination not in nodes:
             nodes.append(destination)
-            center.nodes[destination] = TNplus.Node(destination, center, {}, {}, False, 1, [], [])
-            center.nodes[destination].enter.append(edge_id)
-        elif origin not in nodes:
+            center.nodes[destination] = TNplus.Node(destination, center, {}, [], False, 1, [], [])
+
+        if origin not in nodes:
             nodes.append(origin)
-            center.nodes[origin] = TNplus.Node(origin, center, {}, {}, False, 1, [], [])
-            center.nodes[origin].off.append(edge_id)
-        else:
-            center.nodes[origin].edge_num += 1
-            center.nodes[destination].edge_num += 1
+            center.nodes[origin] = TNplus.Node(origin, center, {}, [], False, 1, [], [])
+
+        center.nodes[origin].edge_num += 1
+        center.nodes[destination].enter.append(edge_id)
+        center.nodes[destination].edge_num += 1
+        center.nodes[origin].off.append(edge_id)
 
         for n in nodes:
             for enter in center.nodes[n].enter:
@@ -117,27 +109,33 @@ if __name__ == "__main__":
         # print(edge_id, center, origin, destination, length)
         edge = TNplus.Edge(edge_id, center, origin, destination, length, {}, free_flow_time,0.15, 4)
         edge.capacity["all"] = (capacity, 0)
-        for i in center.nodes[destination].off:
-            if center.nodes[destination].edge_num > 2:
-                edge.capacity[i] = (capacity / (center.nodes[destination].edge_num / 2 - 1), 0)
-            else:
-                edge.capacity[i] = (capacity, 0)
         center.edges[edge_id] = edge
         edge_id += 1
 
+    for edge in center.edges.values():
+        index = edge.destination
+        destination = center.nodes[index]
+        for off in destination.off:
+            edge.capacity[off] = (edge.capacity['all'][0] / (destination.edge_num / 2 - 1), 0)
 
-
+    # for edge in center.edges.values():
+    #     print(edge.capacity)
 
     v_index = 0
 
     for i in range(1, 451):
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
-                vehicle.wait(vehicle.road, vehicle.road.id, vehicle.next_road.id)
+                vehicle.wait(vehicle.road, vehicle.next_road)
             elif vehicle.charging:
                 continue
             elif vehicle.road != -1:
                 vehicle.drive(vehicle.road)
+
+
+        if i == 1:
+            for i in TNplus.cs:
+                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {10: {}}, {10: []}, 100, {10: 15} )
 
         if i % 10 == 1:
             OD = OD_results[int(i / 15)]
@@ -154,9 +152,18 @@ if __name__ == "__main__":
                         for edge in center.edges.values():
                             if edge.origin == path[i] and edge.destination == path[i + 1]:
                                 true_path.append(edge.id)
+                    if len(true_path) > 1:
+                        next = true_path[1]
+                    else:
+                        next = -1
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
-                                                    true_path[0], true_path[1],
+                                                    true_path[0], next,
                                                     true_path, 100, 80, 0.05, 0.15, 0, {}, 1)
+                    center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
+                        center.edges[true_path[0]].capacity["all"], 1)
+                    if next != -1:
+                        center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
+                            center.edges[true_path[0]].capacity[next], 1)
                     center.vehicles.append(new_vehicle)
                     if charge_num == 0:
                         new_vehicle.drive()
@@ -172,9 +179,17 @@ if __name__ == "__main__":
                         for edge in center.edges.values():
                             if edge.origin == path[i] and edge.destination == path[i + 1]:
                                 true_path.append(edge.id)
+                    if len(true_path) > 1:
+                        next = true_path[1]
+                    else:
+                        next = -1
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
-                                                    true_path[0], -1,
+                                                    true_path[0], next,
                                                     true_path, 100, 80, 0.05, 0.15, 0, {}, 1)
+                    center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity["all"], 1)
+                    if next != -1:
+                        center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
+                            center.edges[true_path[0]].capacity[next], 1)
                     center.vehicles.append(new_vehicle)
                     if charge_num == 0:
                         new_vehicle.drive()
@@ -187,11 +202,10 @@ if __name__ == "__main__":
             center.dispatch(charge_v, path_results, i)
 
 
-        if i == 1:
-            for i in TNplus.cs:
-                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {}, {}, 100, {10: 15} )
 
         for cs in center.charge_stations.values():
             cs.process()
 
         print(center.calculate_lost())
+        print(i)
+        print(999)
