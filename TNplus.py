@@ -135,6 +135,7 @@ class Vehicle:
 
         else:
             self.E -= self.distance * self.Edrive
+            r = self.distance / drive_distance
             self.distance = 0
             if self.check_charge():
                 self.enter_charge()
@@ -145,7 +146,7 @@ class Vehicle:
                 # road.capacity["all"][1] -= 1
                 self.road = -1
             elif not self.check_charge() and self.next_road != -1:
-                self.wait(self.road, self.next_road, self.distance / drive_distance)
+                self.wait(self.road, self.next_road, r)
 
 
 
@@ -161,21 +162,27 @@ class Vehicle:
         if self.is_wait == 0 and self.distance == 0:
             if c != 0:
                 self.is_wait = 0.5 * c * ((1 - g / c) ** 2 / (1 - min(1, x / cap) * g / c))
-                # print(f"车辆 {self.id} 需要的等待时间为{self.is_wait} ")
-            # self.is_wait -= t * (1 - rate)
+            else:
+                self.is_wait = 0
+            if self.is_wait > t * (1 - rate):
+                self.is_wait -= t * (1 - rate)
+            else:
+                self.is_wait = 0.01
+            print(f"车辆 {self.id} 需要的等待时间为{self.is_wait} ")
             junction.wait.append((self.id, self.is_wait))
         elif self.is_wait > 0:
             if self.is_wait <= t:
+                r = self.is_wait / t
                 self.is_wait = 0
                 for tu in junction.wait:
                     if tu[0] == self.id:
                         junction.wait.remove(tu)
-                self.change_road()
+                self.change_road(1 - r)
             else:
-                self.is_wait -= t * rate
+                self.is_wait -= t
 
 
-    def change_road(self):
+    def change_road(self, rate = 0):
         if self.index < len(self.path):
             road = self.center.edges[self.road]
             next_road = self.center.edges[self.next_road]
@@ -193,6 +200,10 @@ class Vehicle:
                 road = self.center.edges[self.road]
                 next_road = self.center.edges[self.next_road]
                 self.distance = road.length
+                if self.distance > rate * road.length / road.free_time:
+                    self.distance -= rate * road.length / road.free_time
+                else:
+                    self.distance = 0.01
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
                 # road.capacity["all"][1] += 1
                 road.capacity[next_road.id] = self.center.solve_tuple(road.capacity[next_road.id], 1)
