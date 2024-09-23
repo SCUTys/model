@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     v_index = 0
 
-    for i in range(1, 451):
+    for i in range(1, 200):
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
                 vehicle.wait(vehicle.road, vehicle.next_road)

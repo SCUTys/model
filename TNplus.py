@@ -135,20 +135,25 @@ class Vehicle:
         else:
             self.E -= self.distance * self.Edrive
             self.distance = 0
-            if self.check_destination():
+            if self.check_charge():
+                self.enter_charge()
+            elif self.check_destination():
+                print(f'车辆{self.id}已到达终点{self.destination},不再行驶')
                 road = self.center.edges[self.road]
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
                 # road.capacity["all"][1] -= 1
                 self.road = -1
             elif not self.check_charge() and self.next_road != -1:
                 self.wait(self.road, self.next_road, self.distance / drive_distance)
-            elif self.check_charge():
-                self.enter_charge()
+
+
 
 
     def wait(self, fr, to, rate=1):
         road = self.center.edges[self.road]
         junction = self.center.nodes[road.destination]
+        if fr == to:
+            print(f"发现目标, id:{self.id}, path:{self.path}, road:{self.road}, next_road:{self.next_road}, {self.origin},{self.destination}")
         g, c= junction.signal[(fr, to)]
         cap, x = road.capacity[to]
         print(f"车辆 {self.id} 正在等待 ")
@@ -192,10 +197,13 @@ class Vehicle:
                 road.capacity[next_road.id] = self.center.solve_tuple(road.capacity[next_road.id], 1)
                 # road.capacity[next_road.id][1] += 1
                 print(f"车辆{self.id}转到{self.road}")
+            else:
+                self.index += 1
+                self.next_road = -1
 
 
     def check_charge(self):
-        if self.distance == 0 and self.center.edges[self.road].destination == self.charge:
+        if self.center.edges[self.road].destination == self.charge[0]:
             return True
         else:
             return False
@@ -204,14 +212,15 @@ class Vehicle:
     def enter_charge(self):
         charge = self.center.charge_stations[self.charge[0]]
         self.charging = True
-        for (i, a) in self.charge.dispatch:
+        print(f"车辆{self.id}进入充电站{self.charge[0]}")
+        for (i, a) in self.center.charge_stations[self.charge[0]].dispatch.items():
             if self.id == i:
-                charge.dispatch.remove((i, a))
-                charge.q_length += 1
-                charge.queue[self.charge[1]].append((self.id, 0))
+                self.center.charge_stations[self.charge[0]].dispatch.pop(i)
+                self.center.charge_stations[self.charge[0]].queue[self.charge[1]].append((self.id, 0))
 
 
     def leave_charge(self):
+        print(f'车辆在{self.charge}充完电离开')
         self.charging = False
         self.charge = 0
         self.change_road()
