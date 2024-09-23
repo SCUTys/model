@@ -204,12 +204,9 @@ class Vehicle:
 
 
     def check_charge(self):
-        # print(self.road, end=' ')
-        # print(222)
-        # print(self.center.edges[self.road].destination)
-        # print(114514)
-        # print(self.charge[0])
-        # print(1919810)
+        # print(self.charge, end=' ')
+        # print(self.id, end=' ')
+        # print('新号别搞')
         if self.charge == {}:
             return False
         if self.center.edges[self.road].destination == self.charge[0]:
@@ -219,7 +216,6 @@ class Vehicle:
 
 
     def enter_charge(self):
-        charge = self.center.charge_stations[self.charge[0]]
         self.charging = True
         print(f"车辆{self.id}进入充电站{self.charge[0]}")
         del_list = []
@@ -232,9 +228,9 @@ class Vehicle:
             self.center.charge_stations[self.charge[0]].dispatch.pop(i)
 
     def leave_charge(self):
-        print(f'车辆在{self.charge}充完电离开')
+        print(f'车辆{self.id}在{self.charge}充完电离开')
         self.charging = False
-        self.charge = 0
+        self.charge = {}
         self.change_road()
 
 
@@ -299,17 +295,21 @@ class ChargeStation:
 
     def process(self):
         for p, n in self.pile.items():
-            print(self.queue)
-            print(114514)
+            # print(self.queue)
+            # print(114514)
             if len(self.charge[p]) > 0:
-                for id, time in self.charge[p]:
-                    if time > t:
-                        time -= t
+                # print(self.charge[p])
+                # print("我是神里绫华的狗")
+                for index, tu in enumerate(self.charge[p]):
+                    if tu[1] > t:
+                        self.charge[p][index] = self.center.solve_tuple(tu, -t)
+                        # print(self.charge[p])
+                        # print("妮露宵宫的猫")
                     else:
-                        time -= time
-                        v = self.center.vehicles[id]
-                        self.charge[p].remove((v.id, time))
+                        v = self.center.vehicles[tu[0]]
+                        self.charge[p].remove(tu)
                         v.leave_charge()
+
 
             while len(self.charge[p]) < n and self.queue[p]:
                 v_id = self.queue[p][0][0]
