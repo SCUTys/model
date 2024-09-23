@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
         if i == 1:
             for i in TNplus.cs:
-                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {10: {}}, {10: []}, 100, {10: 15} )
+                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {10: []}, {10: []}, 100, {10: 15} )
 
         if i % 10 == 1 or i == 1:
             OD = OD_results[int(i / 10)]

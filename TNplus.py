@@ -39,9 +39,10 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
             for i, is_wait in node.wait:
                 sum_road += is_wait
         for charge_station in self.charge_stations.values():
-            if list(charge_station.charge.values()) != [{}]:
-                for i, time in charge_station.charge.values():
-                    sum_road += time
+            if list(charge_station.charge.values()) != [[]]:
+                for ipair in charge_station.charge.values():
+                    for i in ipair:
+                        sum_road += i[1]
             for p, n in charge_station.pile.items():
                 length = len(charge_station.queue[p])
                 if length > 0:
@@ -203,6 +204,14 @@ class Vehicle:
 
 
     def check_charge(self):
+        # print(self.road, end=' ')
+        # print(222)
+        # print(self.center.edges[self.road].destination)
+        # print(114514)
+        # print(self.charge[0])
+        # print(1919810)
+        if self.charge == {}:
+            return False
         if self.center.edges[self.road].destination == self.charge[0]:
             return True
         else:
@@ -213,11 +222,14 @@ class Vehicle:
         charge = self.center.charge_stations[self.charge[0]]
         self.charging = True
         print(f"车辆{self.id}进入充电站{self.charge[0]}")
+        del_list = []
         for (i, a) in self.center.charge_stations[self.charge[0]].dispatch.items():
             if self.id == i:
-                self.center.charge_stations[self.charge[0]].dispatch.pop(i)
-                self.center.charge_stations[self.charge[0]].queue[self.charge[1]].append((self.id, 0))
+                del_list.append(i)
 
+                self.center.charge_stations[self.charge[0]].queue[self.charge[1]].append((self.id, 0))
+        for i in del_list:
+            self.center.charge_stations[self.charge[0]].dispatch.pop(i)
 
     def leave_charge(self):
         print(f'车辆在{self.charge}充完电离开')
@@ -287,6 +299,8 @@ class ChargeStation:
 
     def process(self):
         for p, n in self.pile.items():
+            print(self.queue)
+            print(114514)
             if len(self.charge[p]) > 0:
                 for id, time in self.charge[p]:
                     if time > t:
@@ -298,7 +312,8 @@ class ChargeStation:
                         v.leave_charge()
 
             while len(self.charge[p]) < n and self.queue[p]:
-                v_id = self.queue[p][0]
+                v_id = self.queue[p][0][0]
+                print(f'v_id:{v_id}')
                 e = self.center.vehicles[v_id].E
                 e_max = self.center.vehicles[v_id].Emax
                 self.charge[p].append((v_id, (e_max - e) / p))
