@@ -2,7 +2,7 @@ import random
 
 
 t = 1 #min
-T = 30 #min
+T = 1.5 #min
 k = 1
 cs = [10, 11, 16, 22]
 
@@ -53,8 +53,10 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
     def dispatch(self, charging_vehicles, path_results, t):
         for v in charging_vehicles:
             vehicle = self.vehicles[v]
+            print(f"车辆{vehicle.id}原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
             c_index = cs[random.randint(0, len(cs) - 1)]
             vehicle.charge = (c_index,  list(self.charge_stations[c_index].pile.keys())[0])    ##这里没并算法就写个随机数吧
+            print(f"车辆 {vehicle.id} 分配到充电站{c_index} ")
             if vehicle.origin != vehicle.charge[0]:
                 path1 = path_results[(vehicle.origin, vehicle.charge[0])][0]
             else:
@@ -65,7 +67,7 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
                 path2 = []
             if len(path1) >= 1:
                 path11 = path1[random.randint(0, len(path1) - 1)]
-                path11.pop()
+                # path11.pop()
             else:
                 path11 = []
 
@@ -73,23 +75,24 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
                 path22 = path2[random.randint(0, len(path2) - 1)]
             else:
                 path22 = []
-            path = path11 + path22
-            true_path = []
+
+            true_path2 = []
             true_path1 = []
-            for i in range(0, len(path1) - 1):
+            for i in range(0, len(path11) - 1):
                 for edge in self.edges.values():
-                    if edge.origin == path[i] and edge.destination == path[i + 1]:
+                    if edge.origin == path11[i] and edge.destination == path11[i + 1]:
                         true_path1.append(edge.id)
-            for i in range(0, len(path) - 1):
+            for i in range(0, len(path22) - 1):
                 for edge in self.edges.values():
-                    if edge.origin == path[i] and edge.destination == path[i + 1]:
-                        true_path.append(edge.id)
-            vehicle.path = true_path
-            if len(true_path) > 0:
-                vehicle.distance =self.edges[true_path[0]].length
-            vehicle.road =true_path[0]
-            if len(true_path) > 1:
-                vehicle.next_road = true_path[1]
+                    if edge.origin == path22[i] and edge.destination == path22[i + 1]:
+                        true_path2.append(edge.id)
+            vehicle.path = true_path1 + true_path2
+            print(f"重新分配的路径{vehicle.path}")
+            if len(vehicle.path) > 0:
+                vehicle.distance =self.edges[vehicle.path[0]].length
+            vehicle.road =vehicle.path[0]
+            if len(vehicle.path) > 1:
+                vehicle.next_road = vehicle.path[1]
             else:
                 vehicle.next_road = -1
             time = 0
@@ -124,7 +127,6 @@ class Vehicle:
         road = self.center.edges[self.road]
         # print(road.id)
         drive_distance = road.calculate_drive() * rate
-        # print(drive_distance)
         if drive_distance < self.distance:
             self.distance -= drive_distance
             self.E -= drive_distance * self.Edrive
@@ -153,6 +155,7 @@ class Vehicle:
         if self.is_wait == 0 and self.distance == 0:
             if c != 0:
                 self.is_wait = 0.5 * c * ((1 - g / c) ** 2 / (1 - min(1, x / cap) * g / c))
+                # print(f"车辆 {self.id} 需要的等待时间为{self.is_wait} ")
             # self.is_wait -= t * (1 - rate)
             junction.wait.append((self.id, self.is_wait))
         elif self.is_wait > 0:
@@ -177,7 +180,7 @@ class Vehicle:
 
             self.road = self.next_road
 
-            if self.index < len(self.path):
+            if self.index < len(self.path) - 1:
                 self.index += 1
                 self.next_road = self.path[self.index]
 
@@ -188,6 +191,7 @@ class Vehicle:
                 # road.capacity["all"][1] += 1
                 road.capacity[next_road.id] = self.center.solve_tuple(road.capacity[next_road.id], 1)
                 # road.capacity[next_road.id][1] += 1
+                print(f"车辆{self.id}转到{self.road}")
 
 
     def check_charge(self):

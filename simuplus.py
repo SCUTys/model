@@ -104,7 +104,7 @@ if __name__ == "__main__":
             for enter in center.nodes[n].enter:
                 for off in center.nodes[n].off:
                     if enter != -1 and off != -1:
-                        center.nodes[n].signal[(enter, off)] = (90 / (center.nodes[n].edge_num / 2 - 1), 90)
+                        center.nodes[n].signal[(enter, off)] = (1.5 / (center.nodes[n].edge_num / 2), 1.5)
 
         # print(edge_id, center, origin, destination, length)
         edge = TNplus.Edge(edge_id, center, origin, destination, length, {}, free_flow_time,0.15, 4)
@@ -137,8 +137,8 @@ if __name__ == "__main__":
             for i in TNplus.cs:
                 center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {10: {}}, {10: []}, 100, {10: 15} )
 
-        if i % 10 == 1:
-            OD = OD_results[int(i / 15)]
+        if i % 10 == 1 or i == 1:
+            OD = OD_results[int(i / 10)]
             charge_num = random.randint(10, 15)
             charge_v = []
 
