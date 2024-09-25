@@ -109,6 +109,7 @@ if __name__ == "__main__":
         # print(edge_id, center, origin, destination, length)
         edge = TNplus.Edge(edge_id, center, origin, destination, length, {}, free_flow_time,0.15, 4)
         edge.capacity["all"] = (capacity, 0)
+        edge.capacity[-1] = (capacity, 0)
         center.edges[edge_id] = edge
         edge_id += 1
 
@@ -123,7 +124,7 @@ if __name__ == "__main__":
 
     v_index = 0
 
-    for i in range(1, 350):
+    for i in range(1, 100):
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
                 vehicle.wait(vehicle.road, vehicle.next_road)
@@ -159,14 +160,15 @@ if __name__ == "__main__":
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
                                                     true_path[0], next,
                                                     true_path, 100, 80, 0.05, 0.15, 0, {}, 1)
-                    center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
-                        center.edges[true_path[0]].capacity["all"], 1)
-                    print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
+                    if charge_num == 0:
+                        center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
+                            center.edges[true_path[0]].capacity["all"], 1)
+                        print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
+                        if next != -1:
+                            center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
+                            center.edges[true_path[0]].capacity[next], 1)
                     # print(center.edges[true_path[0]].capacity)
                     # print('mlgbdcl')
-                    if next != -1:
-                        center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
-                            center.edges[true_path[0]].capacity[next], 1)
                     center.vehicles.append(new_vehicle)
                     if charge_num == 0:
                         new_vehicle.drive()
@@ -189,11 +191,11 @@ if __name__ == "__main__":
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
                                                     true_path[0], next,
                                                     true_path, 100, 80, 0.05, 0.15, 0, {}, 1)
-                    center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity["all"], 1)
-                    print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
-                    if next != -1:
-                        center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
-                            center.edges[true_path[0]].capacity[next], 1)
+                    if charge_num == 0:
+                        center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity["all"], 1)
+                        print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
+                        if next != -1:
+                            center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity[next], 1)
                     center.vehicles.append(new_vehicle)
                     if charge_num == 0:
                         new_vehicle.drive()
@@ -213,3 +215,7 @@ if __name__ == "__main__":
         print(center.calculate_lost())
         print(i)
         print(999)
+
+
+    for edges in center.edges.values():
+        print(f"{id} : {edges.capacity}")

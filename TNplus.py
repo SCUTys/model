@@ -92,18 +92,17 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
             if len(vehicle.path) > 0:
                 vehicle.distance =self.edges[vehicle.path[0]].length
             vehicle.road =vehicle.path[0]
+            self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
             if len(vehicle.path) > 1:
                 vehicle.next_road = vehicle.path[1]
+                self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
             else:
                 vehicle.next_road = -1
             time = 0
             for i in true_path1:
                 time += self.edges[i].calculate_drive()
             self.charge_stations[vehicle.charge[0]].dispatch[v] = t + time
-            self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
             print(f'在车辆{vehicle.id}dispatch中道路{vehicle.road}总流量+1')
-            if vehicle.next_road != -1:
-                self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
             vehicle.drive()
         return
 
@@ -209,7 +208,7 @@ class Vehicle:
                 if self.distance > rate * self.center.edges[self.road].calculate_drive():
                     self.distance -= rate * self.center.edges[self.road].calculate_drive()
                 else:
-                    self.distance = 0.01
+                    self.distance = 0.001
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
                 print(f'在车辆{self.id}change_road中道路{self.road}总流量+1')
                 # road.capacity["all"][1] += 1
@@ -220,10 +219,11 @@ class Vehicle:
                 self.index += 1
                 self.next_road = -1
                 road = self.center.edges[self.road]
+                self.distance = road.length
                 if self.distance > rate * self.center.edges[self.road].calculate_drive():
                     self.distance -= rate * self.center.edges[self.road].calculate_drive()
                 else:
-                    self.distance = 0.01
+                    self.distance = 0.001
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
                 print(f'在车辆{self.id}change_road中道路{self.road}总流量+1')
                 print(f"车辆{self.id}转到{self.road}")
