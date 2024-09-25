@@ -55,8 +55,8 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
         for v in charging_vehicles:
             vehicle = self.vehicles[v]
             print(f"车辆{vehicle.id}原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
-            c_index = cs[random.randint(0, len(cs) - 1)]
-            vehicle.charge = (c_index,  list(self.charge_stations[c_index].pile.keys())[0])    ##这里没并算法就写个随机数吧
+            c_index = cs[random.randint(0, len(cs) - 1)]     ##这里没并算法就写个随机数吧
+            vehicle.charge = (c_index,  list(self.charge_stations[c_index].pile.keys())[0])
             print(f"车辆 {vehicle.id} 分配到充电站{c_index} ")
             if vehicle.origin != vehicle.charge[0]:
                 path1 = path_results[(vehicle.origin, vehicle.charge[0])][0]
@@ -95,9 +95,9 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
             self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
             if len(vehicle.path) > 1:
                 vehicle.next_road = vehicle.path[1]
-                self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
             else:
                 vehicle.next_road = -1
+            self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
             time = 0
             for i in true_path1:
                 time += self.edges[i].calculate_drive()
@@ -130,7 +130,10 @@ class Vehicle:
     def drive(self, rate=1):
         road = self.center.edges[self.road]
         # print(road.id)
-        drive_distance = road.calculate_drive() * rate
+        if rate > 0 and rate < 1:
+            drive_distance = road.calculate_drive() * rate
+        else:
+            drive_distance = road.calculate_drive()
         if drive_distance < self.distance:
             self.distance -= drive_distance
             self.E -= drive_distance * self.Edrive
@@ -140,15 +143,16 @@ class Vehicle:
             self.E -= self.distance * self.Edrive
             r = self.distance / drive_distance
             self.distance = 0
-            if self.check_charge():
-                self.enter_charge()
-            elif self.check_destination():
+
+            if self.check_destination():
                 print(f'车辆{self.id}已到达终点{self.destination},不再行驶')
                 road = self.center.edges[self.road]
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
-                print(f'在车辆{self.id}drive和destination中道路{self.road}总流量-1')
-                # road.capacity["all"][1] -= 1
+                road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], -1)
+                print(f'在车辆{self.id}destination中道路{self.road}总流量-1')
                 self.road = -1
+            elif self.check_charge():
+                self.enter_charge()
             elif not self.check_charge() and self.next_road != -1:
                 self.wait(self.road, self.next_road, r)
 
@@ -167,11 +171,11 @@ class Vehicle:
             if c != 0:
                 self.is_wait = 0.5 * c * ((1 - g / c) ** 2 / (1 - min(1, x / cap) * g / c))
             else:
-                self.is_wait = 0
+                self.change_road()
             if self.is_wait > t * (1 - rate):
                 self.is_wait -= t * (1 - rate)
             else:
-                self.is_wait = 0.01
+                self.is_wait = 0.001
             print(f"车辆 {self.id} 需要的等待时间为{self.is_wait} ")
             junction.wait.append((self.id, self.is_wait))
         elif self.is_wait > 0:
@@ -187,7 +191,7 @@ class Vehicle:
 
 
     def change_road(self, rate = 0):
-        if self.index < len(self.path):
+        if self.index < len(self.path) and self.next_road != -1:
             road = self.center.edges[self.road]
             next_road = self.center.edges[self.next_road]
             road.capacity[next_road.id] = self.center.solve_tuple(road.capacity[next_road.id], -1)
@@ -225,6 +229,7 @@ class Vehicle:
                 else:
                     self.distance = 0.001
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
+                road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], 1)
                 print(f'在车辆{self.id}change_road中道路{self.road}总流量+1')
                 print(f"车辆{self.id}转到{self.road}")
 
@@ -339,7 +344,6 @@ class ChargeStation:
 
             while len(self.charge[p]) < n and self.queue[p]:
                 v_id = self.queue[p][0][0]
-                print(f'v_id:{v_id}')
                 e = self.center.vehicles[v_id].E
                 e_max = self.center.vehicles[v_id].Emax
                 self.charge[p].append((v_id, (e_max - e) / p))

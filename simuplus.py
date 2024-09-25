@@ -119,12 +119,10 @@ if __name__ == "__main__":
         for off in destination.off:
             edge.capacity[off] = (edge.capacity['all'][0] / (destination.edge_num / 2 - 1), 0)
 
-    # for edge in center.edges.values():
-    #     print(edge.capacity)
 
     v_index = 0
 
-    for i in range(1, 100):
+    for i in range(1, 120):
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
                 vehicle.wait(vehicle.road, vehicle.next_road)
@@ -164,9 +162,8 @@ if __name__ == "__main__":
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity["all"], 1)
                         print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
-                        if next != -1:
-                            center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
-                            center.edges[true_path[0]].capacity[next], 1)
+                        center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
+                        center.edges[true_path[0]].capacity[next], 1)
                     # print(center.edges[true_path[0]].capacity)
                     # print('mlgbdcl')
                     center.vehicles.append(new_vehicle)
@@ -194,8 +191,7 @@ if __name__ == "__main__":
                     if charge_num == 0:
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity["all"], 1)
                         print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
-                        if next != -1:
-                            center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity[next], 1)
+                        center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity[next], 1)
                     center.vehicles.append(new_vehicle)
                     if charge_num == 0:
                         new_vehicle.drive()
@@ -217,5 +213,5 @@ if __name__ == "__main__":
         print(999)
 
 
-    for edges in center.edges.values():
-        print(f"{id} : {edges.capacity}")
+    for edge in center.edges.values():
+        print(f"{edge.id} : {edge.capacity}")
