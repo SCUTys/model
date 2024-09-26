@@ -227,7 +227,7 @@ class Vehicle:
             elif self.check_charge():
                 self.enter_charge()
             elif not self.check_charge() and self.next_road != -1:
-                self.wait(self.road, self.next_road, r)
+                self.wait(self.road, self.next_road, 1 - r)
 
 
 
