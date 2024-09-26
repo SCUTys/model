@@ -213,5 +213,11 @@ if __name__ == "__main__":
         print(999)
 
 
-    for edge in center.edges.values():
-        print(f"{edge.id} : {edge.capacity}")
+    # for edge in center.edges.values():
+    #     print(f"{edge.id} : {edge.capacity}")
+
+    for cs in center.charge_stations.values():
+        print(f"{cs.id} : {cs.capacity}")
+        print(f"{cs.id} : {cs.dispatch}")
+        print(f"{cs.id} : {cs.queue}")
+        print(f"{cs.id} : {cs.charge}")
