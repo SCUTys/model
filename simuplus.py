@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     generator = ODGenerator(csv_od_path)
     data = generator.load()
-    OD_results = generator.distribute_od_pairs(data, 100)
+    OD_results = generator.distribute_od_pairs(data, 120)
 
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
@@ -89,11 +89,11 @@ if __name__ == "__main__":
 
         if destination not in nodes:
             nodes.append(destination)
-            center.nodes[destination] = TNplus.Node(destination, center, {}, [], False, 1, [], [])
+            center.nodes[destination] = TNplus.Node(destination, center, {}, [], 1, [], [])
 
         if origin not in nodes:
             nodes.append(origin)
-            center.nodes[origin] = TNplus.Node(origin, center, {}, [], False, 1, [], [])
+            center.nodes[origin] = TNplus.Node(origin, center, {}, [],  1, [], [])
 
         center.nodes[origin].edge_num += 1
         center.nodes[destination].enter.append(edge_id)
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     v_index = 0
 
-    for i in range(1, 120):
+    for i in range(1, 200):
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
                 vehicle.wait(vehicle.road, vehicle.next_road)
@@ -208,16 +208,22 @@ if __name__ == "__main__":
         for cs in center.charge_stations.values():
             cs.process()
 
-        print(center.calculate_lost())
-        print(i)
-        print(999)
+        print(f'for {i}: {center.calculate_lost()}')
 
 
-    # for edge in center.edges.values():
-    #     print(f"{edge.id} : {edge.capacity}")
+
+    for edge in center.edges.values():
+        print(f"{edge.id} : {edge.capacity}")
+        print(' ')
+
 
     for cs in center.charge_stations.values():
         print(f"{cs.id} : {cs.capacity}")
         print(f"{cs.id} : {cs.dispatch}")
         print(f"{cs.id} : {cs.queue}")
         print(f"{cs.id} : {cs.charge}")
+        print(' ')
+
+    print
+
+

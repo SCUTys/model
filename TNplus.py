@@ -1,14 +1,23 @@
 import random
 
-
 t = 1 #min
 T = 1.5 #min
 k = 1
 cs = [10, 11, 16, 22]
 
 
-class DispatchCenter:  #存储所有的数据，并且调度充电车辆
+class DispatchCenter:
+    """
+    调度中心，存储所有数据并调度车辆
+    """
     def __init__(self, vehicles, edges, nodes, charge_stations):
+        """
+        存储四大主体的集合，都是直接存的对象而非id
+        :param vehicles:
+        :param edges:
+        :param nodes:
+        :param charge_stations:
+        """
         self.vehicles = vehicles
         self.edges = edges
         self.nodes = nodes
@@ -27,12 +36,22 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
         return self.charge_stations
 
     def solve_tuple(self, tu, n):
+        """
+        更新元组值的工具函数
+        :param tu: 元组
+        :param n: 改变量（+）
+        :return: 修改后元组
+        """
         tu_list = list(tu)
         tu_list[1] += n
         return tuple(tu_list)
 
 
     def calculate_lost(self):
+        """
+        计算交通部分的总loss
+        :return: 当前总loss
+        """
         sum_road = 0
         for edge in self.edges.values():
             sum_road += edge.capacity["all"][1] * edge.calculate_drive()
@@ -53,6 +72,13 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
 
 
     def dispatch(self, charging_vehicles, path_results, t):
+        """
+        根据某种方式调度要充电的车，这里由于没接算法写了个随机数
+        :param charging_vehicles:需要调度的车辆id集合
+        :param path_results:之前根据OD生成的路径（已途径节点表征）
+        :param t:当前时间
+        :return:无
+        """
         for v in charging_vehicles:
             vehicle = self.vehicles[v]
             print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
@@ -63,8 +89,13 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
             elif vehicle.destination in cs:
                 vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())[0])
                 print(f"车辆 {vehicle.id} 分配到充电站{vehicle.destination} (终点)")
+                time = 0
+                for i in vehicle.path:
+                    time += self.edges[i].calculate_drive()
+                self.charge_stations[vehicle.charge[0]].dispatch[v] = t + time
                 self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
                 self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
                 vehicle.drive()
             else:
                 c_index = cs[random.randint(0, len(cs) - 1)]  ##这里没并算法就写个随机数吧
@@ -122,6 +153,25 @@ class DispatchCenter:  #存储所有的数据，并且调度充电车辆
 
 class Vehicle:
     def __init__(self, id, center, origin, destination, distance, road, next_road, path, Emax, E, Ewait, Edrive, iswait, charge, index=0, charging = False):
+        """
+        存储车辆信息
+        :param id: 车辆id
+        :param center: 所属调度中心（对象）
+        :param origin: 起点id
+        :param destination: 目的地id
+        :param distance: 距下次转弯所需距离
+        :param road: 当前道路id（已到达终点为-1）
+        :param next_road: 下一道路id(无下一道路为-1)
+        :param path: 车辆路径
+        :param Emax: 最大电池储能
+        :param E: 当前储能
+        :param Ewait: 等待时平均耗能
+        :param Edrive: 驾驶时平均耗能
+        :param iswait: 是否在等待信号灯
+        :param charge: 分配的充电站id与充电桩功率（id, power）
+        :param index: 坐标符，在path中指向下一道路
+        :param charging: 是否在充电
+        """
         self.id = id
         self.center = center
         self.origin = origin
@@ -140,6 +190,13 @@ class Vehicle:
         self.charging = False
 
     def drive(self, rate=1):
+        """
+        车辆行为：驾驶
+        若未到达路口，用bpr计算速度，车辆行进
+        若到达路口，判断是否为充电站路口/终点
+        :param rate: 时间比率，用于缓解误差
+        :return:
+        """
         road = self.center.edges[self.road]
         # print(road.id)
         if rate > 0 and rate < 1:
@@ -176,6 +233,14 @@ class Vehicle:
 
 
     def wait(self, fr, to, rate=1):
+        """
+        车辆行为：等待
+        时间到了就切换道路，没到就继续等
+        :param fr: 当前道路
+        :param to: 通过路口后后道路
+        :param rate: 时间比率，用于缓解误差
+        :return:
+        """
         road = self.center.edges[self.road]
         junction = self.center.nodes[road.destination]
         if fr == to:
@@ -187,15 +252,18 @@ class Vehicle:
             if c != 0:
                 self.is_wait = 0.5 * c * ((1 - g / c) ** 2 / (1 - min(1, x / cap) * g / c))
             else:
-                self.change_road()
+                self.change_road(1)
             if self.is_wait > t * (1 - rate):
                 self.is_wait -= t * (1 - rate)
+                self.E -= t * self.Ewait * (1 - rate)
             else:
                 self.is_wait = 0.001
+                self.E -= self.is_wait * self.Ewait
             print(f"车辆 {self.id} 需要的等待时间为{self.is_wait} ")
             junction.wait.append((self.id, self.is_wait))
         elif self.is_wait > 0:
             if self.is_wait <= t:
+                self.E -= self.is_wait * self.Ewait
                 r = self.is_wait / t
                 self.is_wait = 0
                 for tu in junction.wait:
@@ -204,9 +272,16 @@ class Vehicle:
                 self.change_road(1 - r)
             else:
                 self.is_wait -= t
+                self.E -= t * self.Ewait
 
 
     def change_road(self, rate = 0):
+        """
+        车辆行为：切换道路
+        在信号灯等待完毕以及离开充电站时进行
+        :param rate: 比率，用于缓解误差
+        :return:
+        """
         if self.index < len(self.path) and self.next_road != -1:
             road = self.center.edges[self.road]
             next_road = self.center.edges[self.next_road]
@@ -251,9 +326,10 @@ class Vehicle:
 
 
     def check_charge(self):
-        # print(self.charge, end=' ')
-        # print(self.id, end=' ')
-        # print('新号别搞')
+        """
+        检查是否处于分配的充电站所在节点
+        :return: bool值
+        """
         if self.charge == {}:
             return False
         if self.center.edges[self.road].destination == self.charge[0]:
@@ -263,17 +339,24 @@ class Vehicle:
 
 
     def enter_charge(self):
+        """
+        车辆行为：进入当前充电站
+        删除调度集合中的对应元素，加入排队队列
+        :return:
+        """
         self.charging = True
         print(f"车辆 {self.id} 进入充电站{self.charge[0]}")
-        del_list = []
-        for (i, a) in self.center.charge_stations[self.charge[0]].dispatch.items():
-            if self.id == i:
-                del_list.append(i)
+        self.center.charge_stations[self.charge[0]].dispatch = {
+            i: a for i, a in self.center.charge_stations[self.charge[0]].dispatch.items() if self.id != i
+        }
         self.center.charge_stations[self.charge[0]].queue[self.charge[1]].append((self.id, 0))
-        for i in del_list:
-            self.center.charge_stations[self.charge[0]].dispatch.pop(i)
 
-    def leave_charge(self):
+    def leave_charge(self, rate = 0):
+        """
+        车辆行为：离开充电站
+        :param rate:比率，用于缓解误差
+        :return:
+        """
         print(f'车辆 {self.id} 在{self.charge}充完电离开')
         self.charging = False
         if self.destination != self.charge[0]:
@@ -281,10 +364,10 @@ class Vehicle:
                 self.charge = {}
                 self.center.edges[self.road].capacity['all'] = self.center.solve_tuple(self.center.edges[self.road].capacity['all'], 1)
                 self.center.edges[self.road].capacity[self.next_road] = self.center.solve_tuple(self.center.edges[self.road].capacity[self.next_road], 1)
-                self.drive()
+                self.drive(rate)
             else:
                 self.charge = {}
-                self.change_road()
+                self.change_road(rate)
         else:
             print(f'车辆{self.id}已到达终点{self.destination},不再行驶')
             road = self.center.edges[self.road]
@@ -296,6 +379,10 @@ class Vehicle:
 
 
     def check_destination(self):
+        """
+        检查是否为终点
+        :return:
+        """
         if self.distance == 0 and self.center.edges[self.road].destination == self.destination and self.next_road == -1:
             return True
         else:
@@ -318,20 +405,31 @@ class Edge:
         self.power = power
 
     def calculate_drive(self):
+        """
+        BPR公式计算单位时间内可行驶距离
+        :return:
+        """
         cap, x = self.capacity["all"]
         return self.length / self.free_time / (1 + self.b * (x / cap)**self.power) * t
 
 
 
 class Node:
-    def __init__(self, id, center, signal, wait, is_charge, edge_num, enter, off):
-        #signal = {{fr, to}: {g, C}}, 表示每个方向信号灯所属绿灯时长与总周期时长
-        #wait = {{vid, t}} 表示正在等候的车辆的合集
+    def __init__(self, id, center, signal, wait, edge_num, enter, off):
+        """
+        节点对象（即路口）
+        :param id: 节点id
+        :param center: 所属控制中心(对象)
+        :param signal: {{fr, to}: {g, C}}, 表示每个方向信号灯所属绿灯时长与总周期时长
+        :param wait: {{vid, t}} 表示正在等候的车辆的合集
+        :param edge_num: 连接道路总数
+        :param enter: 驶入该节点的道路id集合
+        :param off: 驶出该节点的道路id集合
+        """
         self.id = id
         self.center = center
         self.signal = signal
         self.wait = wait
-        self.is_charge = is_charge
         self.edge_num = edge_num
         self.enter = enter
         self.off = off
@@ -341,10 +439,17 @@ class Node:
 
 class ChargeStation:
     def __init__(self, id, center, dispatch, charge, queue, capacity, pile):
-        #dispatch = {v: atime} 表示分配到该站点但仍未到达的车辆，按预计到达时间排序
-        #charge = {power:{id, t}} 表示正在充电的车辆
-        #queue = {power: id} 表示正在站内排队等候充电的队列
-        #pile = (power:num) 表示站内充电桩功率与数量
+        """
+
+        :param id:充电站id，与道路id一致
+        :param center:所属控制中心(对象)
+        :param dispatch: {v: atime} 表示分配到该站点但仍未到达的车辆，理想情形下按预计到达时间排序
+        :param charge: {power:{id, t}} 表示正在充电的车辆与剩余充电时长
+        :param queue: {power: {id, t}} 表示正在站内排队等候充电的车辆与其已等待时间
+        :param capacity: 最大容量
+        :param pile: (power: num) 表示站内充电桩功率与数量
+        """
+
         self.id = id    #这里假设和路口一致
         self.center = center
         self.dispatch = dispatch
@@ -355,21 +460,20 @@ class ChargeStation:
 
 
     def process(self):
+        """
+        充电站内活动：充电的充电，排队的排队，充电桩有空位就将队首车辆送去充电
+        :return:
+        """
         for p, n in self.pile.items():
-            # print(self.queue)
-            # print(114514)
             if len(self.charge[p]) > 0:
-                # print(self.charge[p])
-                # print("我是神里绫华的狗")
                 for index, tu in enumerate(self.charge[p]):
                     if tu[1] > t:
                         self.charge[p][index] = self.center.solve_tuple(tu, -t)
-                        # print(self.charge[p])
-                        # print("妮露宵宫的猫")
                     else:
+                        rate = 1 - tu[1] / t
                         v = self.center.vehicles[tu[0]]
                         self.charge[p].remove(tu)
-                        v.leave_charge()
+                        v.leave_charge(rate)
 
 
             while len(self.charge[p]) < n and self.queue[p]:
@@ -379,10 +483,18 @@ class ChargeStation:
                 self.charge[p].append((v_id, (e_max - e) / p))
                 self.queue[p].pop(0)
 
+            if len(self.queue[p]) > 0:
+                for index, tu in enumerate(self.queue[p]):
+                    self.queue[p][index] = self.center.solve_tuple(tu, t)
+
 
 
 
     def check(self):
+        """
+        检查充电站内车辆总数是否超过capacity(截至9.26仍未使用，因为调度暂时是随机数)
+        :return: bool值
+        """
         charge_sum = sum(len(v) for v in self.charge.values())
         queue_sum = sum(len(v) for v in self.queue.values())
         if charge_sum + queue_sum + len(self.dispatch) < self.capacity:
