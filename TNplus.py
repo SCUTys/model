@@ -83,12 +83,14 @@ class DispatchCenter:
             vehicle = self.vehicles[v]
             print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
             if vehicle.origin in cs:
-                vehicle.charge = (vehicle.origin, list(self.charge_stations[vehicle.origin].pile.keys())[0])
-                print(f"车辆 {vehicle.id} 分配到充电站{vehicle.origin} (起点)")
+                vehicle.charge = (vehicle.origin, list(self.charge_stations[vehicle.origin].pile.keys())
+                                    [random.randint(0, len(list(self.charge_stations[vehicle.origin].pile.keys()))-1)])
+                print(f"车辆 {vehicle.id} 分配到充电站{vehicle.origin} (起点), 充电功率为{vehicle.charge[1]}")
                 vehicle.enter_charge()
             elif vehicle.destination in cs:
-                vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())[0])
-                print(f"车辆 {vehicle.id} 分配到充电站{vehicle.destination} (终点)")
+                vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
+                                    [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys()))-1)])
+                print(f"车辆 {vehicle.id} 分配到充电站{vehicle.destination} (终点), 充电功率为{vehicle.charge[1]}")
                 time = 0
                 for i in vehicle.path:
                     time += self.edges[i].calculate_drive()
@@ -99,8 +101,9 @@ class DispatchCenter:
                 vehicle.drive()
             else:
                 c_index = cs[random.randint(0, len(cs) - 1)]  ##这里没并算法就写个随机数吧
-                vehicle.charge = (c_index, list(self.charge_stations[c_index].pile.keys())[0])
-                print(f"车辆 {vehicle.id} 分配到充电站{c_index} ")
+                vehicle.charge = (c_index, list(self.charge_stations[c_index].pile.keys())
+                                    [random.randint(0, len(list(self.charge_stations[c_index].pile.keys()))-1)])
+                print(f"车辆 {vehicle.id} 分配到充电站{c_index}, 充电功率为{vehicle.charge[1]} ")
                 if vehicle.origin != vehicle.charge[0]:
                     path1 = path_results[(vehicle.origin, vehicle.charge[0])][0]
                 else:
@@ -111,7 +114,6 @@ class DispatchCenter:
                     path2 = []
                 if len(path1) >= 1:
                     path11 = path1[random.randint(0, len(path1) - 1)]
-                    # path11.pop()
                 else:
                     path11 = []
 
@@ -306,9 +308,7 @@ class Vehicle:
                     self.distance = 0.001
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
                 print(f'在车辆 {self.id} change_road中道路{self.road}总流量+1')
-                # road.capacity["all"][1] += 1
                 road.capacity[next_road.id] = self.center.solve_tuple(road.capacity[next_road.id], 1)
-                # road.capacity[next_road.id][1] += 1
                 print(f"车辆 {self.id} 转到{self.road}")
             elif self.index == len(self.path) - 1:
                 self.index += 1
@@ -345,7 +345,7 @@ class Vehicle:
         :return:
         """
         self.charging = True
-        print(f"车辆 {self.id} 进入充电站{self.charge[0]}")
+        print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}")
         self.center.charge_stations[self.charge[0]].dispatch = {
             i: a for i, a in self.center.charge_stations[self.charge[0]].dispatch.items() if self.id != i
         }
@@ -393,7 +393,18 @@ class Vehicle:
 
 class Edge:
     def __init__(self, id, center, origin, destination, length, capacity, free_time, b, power):
-        #capacity = {{to: cap, x}} 表示各方向车道组的容量(内为字典),to为下一条道路的id
+        """
+        道路对象类定义
+        :param id: id
+        :param center: 所属调度中心
+        :param origin: 道路起点节点id
+        :param destination: 道路终点节点id
+        :param length: 道路长度
+        :param capacity: {{to: cap, x}} 表示各方向车道组的容量(内为字典),to为下一条道路的id
+        :param free_time: 无车流影响时正常行驶所需时间
+        :param b: bpr公式参数
+        :param power: bpr公式参数
+        """
         self.id = id
         self.center = center
         self.origin = origin
@@ -440,7 +451,6 @@ class Node:
 class ChargeStation:
     def __init__(self, id, center, dispatch, charge, queue, capacity, pile):
         """
-
         :param id:充电站id，与道路id一致
         :param center:所属控制中心(对象)
         :param dispatch: {v: atime} 表示分配到该站点但仍未到达的车辆，理想情形下按预计到达时间排序

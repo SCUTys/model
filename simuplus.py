@@ -8,7 +8,7 @@ import random
 
 standard_speed = 60 #km/h
 t = 1 #min
-T = 30 #min
+T = 10 #min
 csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
@@ -50,10 +50,6 @@ class ODGenerator:
 
 
 
-
-
-
-
 if __name__ == "__main__":
 
 
@@ -66,10 +62,12 @@ if __name__ == "__main__":
     processor = PathProcessor(csv_net_path, od_pairs)
     G = processor.build_graph(csv_net_path)
     path_results = processor.process_paths()
+    print(path_results)
 
     generator = ODGenerator(csv_od_path)
     data = generator.load()
     OD_results = generator.distribute_od_pairs(data, 120)
+    print(OD_results)
 
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
@@ -100,6 +98,11 @@ if __name__ == "__main__":
         center.nodes[destination].edge_num += 1
         center.nodes[origin].off.append(edge_id)
 
+
+        """
+        从这里开始，106~123行是对节点信号信息和容量及其分量的定义，这里没有写csv信息，而是假设其均匀然后平均分配
+        实际情况下这里读入csv文件后直接赋值就行
+        """
         for n in nodes:
             for enter in center.nodes[n].enter:
                 for off in center.nodes[n].off:
@@ -120,9 +123,10 @@ if __name__ == "__main__":
             edge.capacity[off] = (edge.capacity['all'][0] / (destination.edge_num / 2 - 1), 0)
 
 
-    v_index = 0
 
-    for i in range(1, 200):
+
+    v_index = 0
+    for i in range(1, 120):
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
                 vehicle.wait(vehicle.road, vehicle.next_road)
@@ -132,11 +136,16 @@ if __name__ == "__main__":
                 vehicle.drive(vehicle.road)
 
 
+
+        """
+        这里143~145行的信息可改成用csv读入
+        """
         if i == 1:
             for i in TNplus.cs:
-                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {10: []}, {10: []}, 100, {10: 15} )
+                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {10: [], 20: []}, {10: [], 20: []}, 100, {10: 10, 20: 10} )
 
-        if i % 10 == 1 or i == 1:
+
+        if i % T == 1 or i == 1:
             OD = OD_results[int(i / 10)]
             charge_num = random.randint(10, 15)
             charge_v = []
@@ -208,8 +217,14 @@ if __name__ == "__main__":
         for cs in center.charge_stations.values():
             cs.process()
 
-        print(f'for {i}: {center.calculate_lost()}')
+        # print(f'for {i}: {center.calculate_lost()}')
 
+
+    v = []
+    for vehicle in center.vehicles:
+        if vehicle.road == -1:
+            v.append(vehicle.id)
+    print(v)
 
 
     for edge in center.edges.values():
@@ -223,7 +238,4 @@ if __name__ == "__main__":
         print(f"{cs.id} : {cs.queue}")
         print(f"{cs.id} : {cs.charge}")
         print(' ')
-
-    print
-
 
