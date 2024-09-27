@@ -25,9 +25,9 @@ class DispatchCenter:
         """
 
 车辆：每辆车存储信息，类中包含车辆的各种行为函数
-class Vehicle: 
-    def __init__(self, id, center, origin, destination, distance, road, next_road, path, Emax, E, Ewait, Edrive, iswait, charge, index=0, charging = False):
-        """
+"""
+class Vehicle:
+    def __init__(self, id, center, origin, destination, distance, road, next_road, path, Emax, E, Ewait, Edrive, iswait, charge, index=0, charging = False): 
         存储车辆信息
         :param id: 车辆id
         :param center: 所属调度中心（对象）
@@ -45,7 +45,8 @@ class Vehicle:
         :param charge: 分配的充电站id与充电桩功率（id, power）
         :param index: 坐标符，在path中指向下一道路
         :param charging: 是否在充电
-        """
+        
+"""
 
 
 道路对象：道路信息
