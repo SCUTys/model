@@ -111,7 +111,10 @@ simuplus.py里，main函数前半部分有读入csv数据然后定义道路和�
 ![image](https://github.com/user-attachments/assets/2cb77a74-2520-456d-9ba7-d25084b372cf)
 
 
+
 （5）：其他说明
-我是不是写个仿真信号灯版本的会好点emmmmm，虽然看以往文献没见几个考虑信号灯的
+
+是不是写个仿真信号灯版本的会好点emmmmm，虽然看以往文献没见几个考虑信号灯的
+
 9.28起开始接入电网
 
