@@ -226,10 +226,12 @@ if __name__ == "__main__":
             v.append(vehicle.id)
     print(v)
 
-
+    sum1 = len(v)
+    sum2 = 0
     for edge in center.edges.values():
         print(f"{edge.id} : {edge.capacity}")
         print(' ')
+        sum2 += edge.capacity['all'][1]
 
 
     for cs in center.charge_stations.values():
@@ -238,4 +240,11 @@ if __name__ == "__main__":
         print(f"{cs.id} : {cs.queue}")
         print(f"{cs.id} : {cs.charge}")
         print(' ')
+
+    print(f"已到达车辆{sum1}")
+    print(f"总共流统计{sum1+sum2}")
+    print("耐改王")
+
+
+
 

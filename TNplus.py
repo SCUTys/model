@@ -3,7 +3,8 @@ import random
 t = 1 #min
 T = 1.5 #min
 k = 1
-cs = [10, 11, 16, 22]
+cs = [2, 12, 18, 21
+      ]
 
 
 class DispatchCenter:
@@ -13,10 +14,10 @@ class DispatchCenter:
     def __init__(self, vehicles, edges, nodes, charge_stations):
         """
         存储四大主体的集合，都是直接存的对象而非id
-        :param vehicles:
-        :param edges:
-        :param nodes:
-        :param charge_stations:
+        :param vehicles: 车辆集合（对象）
+        :param edges:  道路集合（对象）
+        :param nodes:  交叉口集合（对象）
+        :param charge_stations:  充电站集合（对象）
         """
         self.vehicles = vehicles
         self.edges = edges
@@ -277,52 +278,40 @@ class Vehicle:
                 self.E -= t * self.Ewait
 
 
-    def change_road(self, rate = 0):
+    def change_road(self, rate = 0, from_charge = False):
         """
         车辆行为：切换道路
         在信号灯等待完毕以及离开充电站时进行
+        :param from_charge: 是否从充电站出来
         :param rate: 比率，用于缓解误差
         :return:
         """
         if self.index < len(self.path) and self.next_road != -1:
-            road = self.center.edges[self.road]
-            next_road = self.center.edges[self.next_road]
-            road.capacity[next_road.id] = self.center.solve_tuple(road.capacity[next_road.id], -1)
-            # road.capacity[next_road.id][1] -= 1
-            road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
-            print(f'在车辆 {self.id} change_road中道路{self.road}总流量-1')
-            # road.capacity["all"][1] -= 1
+            if not from_charge:
+                road = self.center.edges[self.road]
+                road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], -1)
+                road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
+                print(f'在车辆 {self.id} change_road中道路{self.road}总流量-1')
 
             self.road = self.next_road
 
             if self.index < len(self.path) - 1:
                 self.index += 1
                 self.next_road = self.path[self.index]
-
-                road = self.center.edges[self.road]
-                next_road = self.center.edges[self.next_road]
-                self.distance = road.length
-                if self.distance > rate * self.center.edges[self.road].calculate_drive():
-                    self.distance -= rate * self.center.edges[self.road].calculate_drive()
-                else:
-                    self.distance = 0.001
-                road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
-                print(f'在车辆 {self.id} change_road中道路{self.road}总流量+1')
-                road.capacity[next_road.id] = self.center.solve_tuple(road.capacity[next_road.id], 1)
-                print(f"车辆 {self.id} 转到{self.road}")
-            elif self.index == len(self.path) - 1:
+            else:
                 self.index += 1
                 self.next_road = -1
-                road = self.center.edges[self.road]
-                self.distance = road.length
-                if self.distance > rate * self.center.edges[self.road].calculate_drive():
-                    self.distance -= rate * self.center.edges[self.road].calculate_drive()
-                else:
-                    self.distance = 0.001
-                road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
-                road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], 1)
-                print(f'在车辆 {self.id} change_road中道路{self.road}总流量+1')
-                print(f"车辆 {self.id} 转到{self.road}")
+
+            road = self.center.edges[self.road]
+            self.distance = road.length
+            if self.distance > rate * self.center.edges[self.road].calculate_drive():
+                self.distance -= rate * self.center.edges[self.road].calculate_drive()
+            else:
+                self.distance = 0.001
+            road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
+            print(f'在车辆 {self.id} change_road中道路{self.road}总流量+1')
+            road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], 1)
+            print(f"车辆 {self.id} 转到{self.road}")
 
 
     def check_charge(self):
@@ -345,7 +334,13 @@ class Vehicle:
         :return:
         """
         self.charging = True
-        print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}")
+        if self.origin == self.charge[0]:
+            print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}")
+        else:
+            road = self.center.edges[self.road]
+            road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], -1)
+            road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
+            print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}, 同时道路{self.road}流量-1")
         self.center.charge_stations[self.charge[0]].dispatch = {
             i: a for i, a in self.center.charge_stations[self.charge[0]].dispatch.items() if self.id != i
         }
@@ -367,14 +362,14 @@ class Vehicle:
                 self.drive(rate)
             else:
                 self.charge = {}
-                self.change_road(rate)
+                self.change_road(rate, True)
         else:
             print(f'车辆{self.id}已到达终点{self.destination},不再行驶')
-            road = self.center.edges[self.road]
-            road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
-            road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], -1)
+            # road = self.center.edges[self.road]
+            # road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
+            # road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], -1)
             self.road = -1
-            print(f'在车辆{self.id}destination中道路{self.road}总流量-1')
+            # print(f'在车辆{self.id}destination中道路{self.road}总流量-1')
 
 
 
