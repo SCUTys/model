@@ -14,15 +14,16 @@ structure.txt：我的草稿......
 
 调度中心：负责存各种数据以及调度车辆，这里所有数据都是直接存的对象
 
-class DispatchCenter：
+class DispatchCenter:
     def __init__(self, vehicles, edges, nodes, charge_stations):
         """
         存储四大主体的集合，都是直接存的对象而非id
         :param vehicles: 车辆集合（对象）
-        :param edges:  道路集合（对象）
-        :param nodes:  交叉口集合（对象）
-        :param charge_stations:  充电站集合（对象）
+        :param edges: 道路集合（对象）
+        :param nodes: 交叉口集合（对象）
+        :param charge_stations: 充电站集合（对象）
         """
+
 
 车辆：每辆车存储信息，类中包含车辆的各种行为函数
 """
