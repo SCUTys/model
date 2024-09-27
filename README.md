@@ -13,8 +13,8 @@ structure.txt：我的草稿......
 （2）：交通网对象说明：
 
 调度中心：负责存各种数据以及调度车辆，这里所有数据都是直接存的对象
-class DispatchCenter:
 
+class DispatchCenter：
     def __init__(self, vehicles, edges, nodes, charge_stations):
         """
         存储四大主体的集合，都是直接存的对象而非id
