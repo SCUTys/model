@@ -118,3 +118,33 @@ simuplus.py里，main函数前半部分有读入csv数据然后定义道路和�
 
 9.28起开始接入电网
 
+
+
+
+
+10.2完成电网部分
+
+采用一个ieee14模型模拟PDN。
+目前在节点2， 4， 7， 8， 10， 14设置了六个充电站，对应SF交通网的1. 5. 11. 15. 16. 20号节点
+电网1号节点为平衡节点。
+![img_1.png](img_1.png)
+
+每个充电站包括占大部分的充电桩可调负载和小部分的固定日常负载，图示数据为超充和快充各100根桩的情况。
+
+    pp.create_load(net, bus=1, p_mw=17, q_mvar=3.4, max_p_mw=17, max_q_mvar=3.4, name="EVCS 1", controllable=True)
+    pp.create_load(net, bus=1, p_mw=0.03, q_mvar=0.006, name="EVCS 1 Auxiliary Load")
+
+
+在simuplus.py中直接调用PDNplus.py中的函数完成路网数据定期导入以及功率调优
+
+            if i > 1 and i % T_pdn == 1:
+                total_charge_cost = {}
+                for cs in center.charge_stations.values():
+                    total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
+                    cs.cost = 0
+                PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
+                PDNplus.run(pdn, 30)
+                pdn_loss = PDNplus.calculate_loss(pdn, 140)
+                pdn_result.append(pdn_loss)
+
+现在只剩数据调优的问题，截至10.2车流数据规模还比较小，产生的充电需求无法对电网ACOPF的解造成影响

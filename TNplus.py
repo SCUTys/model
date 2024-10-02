@@ -3,8 +3,7 @@ import random
 t = 1 #min
 T = 1.5 #min
 k = 1
-cs = [2, 12, 18, 21
-      ]
+cs = [1, 5, 11, 15, 16, 20]
 
 
 class DispatchCenter:
@@ -354,6 +353,7 @@ class Vehicle:
         """
         print(f'车辆 {self.id} 在{self.charge}充完电离开')
         self.charging = False
+        self.E = self.Emax
         if self.destination != self.charge[0]:
             if self.origin == self.charge[0]:
                 self.charge = {}
@@ -444,7 +444,7 @@ class Node:
 
 
 class ChargeStation:
-    def __init__(self, id, center, dispatch, charge, queue, capacity, pile):
+    def __init__(self, id, center, dispatch, charge, queue, capacity, pile, cost = 0):
         """
         :param id:充电站id，与道路id一致
         :param center:所属控制中心(对象)
@@ -462,6 +462,7 @@ class ChargeStation:
         self.queue = queue
         self.capacity = capacity
         self.pile = pile
+        self.cost = 0
 
 
     def process(self):
@@ -470,12 +471,26 @@ class ChargeStation:
         :return:
         """
         for p, n in self.pile.items():
+            extra_time = []
+
+            while len(self.charge[p]) < n and self.queue[p]:
+                v_id = self.queue[p][0][0]
+                e = self.center.vehicles[v_id].E
+                e_max = self.center.vehicles[v_id].Emax
+                v_t = (e_max - e) / p * 60
+                self.charge[p].append((v_id, v_t))
+                self.queue[p].pop(0)
+
             if len(self.charge[p]) > 0:
                 for index, tu in enumerate(self.charge[p]):
                     if tu[1] > t:
                         self.charge[p][index] = self.center.solve_tuple(tu, -t)
+                        self.cost += p * t
                     else:
                         rate = 1 - tu[1] / t
+                        if t != tu[1]:
+                            extra_time.append(t - tu[1])
+                        self.cost += p * tu[1]
                         v = self.center.vehicles[tu[0]]
                         self.charge[p].remove(tu)
                         v.leave_charge(rate)
@@ -485,7 +500,12 @@ class ChargeStation:
                 v_id = self.queue[p][0][0]
                 e = self.center.vehicles[v_id].E
                 e_max = self.center.vehicles[v_id].Emax
-                self.charge[p].append((v_id, (e_max - e) / p))
+                v_t = (e_max - e) / p * 60
+                if len(extra_time) > 0:
+                    v_t -= extra_time[0]  #有个隐患，万一前车留下的空余时间足够后来相应车直接充满可能会有负数，但谁充电总共只充不到1分钟啊
+                    self.cost += p / 60 * extra_time[0]
+                    extra_time.pop(0)
+                self.charge[p].append((v_id, v_t))
                 self.queue[p].pop(0)
 
             if len(self.queue[p]) > 0:

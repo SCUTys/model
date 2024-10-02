@@ -4,11 +4,13 @@ from pathlib import Path
 import TNplus
 import loaddata as ld
 import random
+import PDNplus
 
 
 standard_speed = 60 #km/h
 t = 1 #min
 T = 10 #min
+T_pdn = 3 * T  #min
 csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
@@ -126,7 +128,9 @@ if __name__ == "__main__":
 
 
     v_index = 0
-    for i in range(1, 120):
+    pdn = PDNplus.create_ieee14()
+    pdn_result = []
+    for i in range(1, 302):
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
                 vehicle.wait(vehicle.road, vehicle.next_road)
@@ -138,17 +142,29 @@ if __name__ == "__main__":
 
 
         """
-        这里143~145行的信息可改成用csv读入
+        这里充电站的信息可改成用csv读入
         """
         if i == 1:
             for i in TNplus.cs:
-                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {10: [], 20: []}, {10: [], 20: []}, 100, {10: 10, 20: 10} )
+                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {50: [], 120: []}, {50: [], 120: []}, 200, {50: 100, 120: 100} , 0)  #规范充电桩功率为kw
 
 
         if i % T == 1 or i == 1:
             OD = OD_results[int(i / 10)]
             charge_num = random.randint(10, 15)
             charge_v = []
+
+            if i > 1 and i % T_pdn == 1:
+                total_charge_cost = {}
+                for cs in center.charge_stations.values():
+                    total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
+                    cs.cost = 0
+                PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
+                PDNplus.run(pdn, 30)
+                pdn_loss = PDNplus.calculate_loss(pdn, 140)
+                pdn_result.append(pdn_loss)
+                # print(pdn_loss)
+                # print(555)
 
 
             for (O,D) in OD:
@@ -166,7 +182,7 @@ if __name__ == "__main__":
                         next = -1
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
                                                     true_path[0], next,
-                                                    true_path, 100, 80, 0.05, 0.15, 0, {}, 1)
+                                                    true_path, 80, 64, 0.05, 0.15, 0, {}, 1)   #电能单位为千瓦时
                     if charge_num == 0:
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity["all"], 1)
@@ -196,7 +212,7 @@ if __name__ == "__main__":
                         next = -1
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
                                                     true_path[0], next,
-                                                    true_path, 100, 80, 0.05, 0.15, 0, {}, 1)
+                                                    true_path, 80, 64, 0.05, 0.15, 0, {}, 1)  #电能单位为千瓦时
                     if charge_num == 0:
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity["all"], 1)
                         print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
@@ -244,7 +260,7 @@ if __name__ == "__main__":
     print(f"已到达车辆{sum1}")
     print(f"总共流统计{sum1+sum2}")
     print("耐改王")
-
+    print(pdn_result)
 
 
 
