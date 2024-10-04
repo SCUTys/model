@@ -14,6 +14,7 @@ T_pdn = 3 * T  #min
 csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
+batch_size = 1200
 
 
 
@@ -42,7 +43,7 @@ class ODGenerator:
     def load(self):
         df =  ld.read_csv(self.file_path, ['O', 'D', 'Ton'])
         # df = df.dropna()
-        data_dict = { (row['O'], row['D']): int(row['Ton']/100) for _, row in df.iterrows()}
+        data_dict = { (row['O'], row['D']): int(row['Ton']/10) for _, row in df.iterrows()}
         return data_dict
 
     def distribute_od_pairs(self, data_dict, elements_per_category=120):
@@ -68,7 +69,7 @@ if __name__ == "__main__":
 
     generator = ODGenerator(csv_od_path)
     data = generator.load()
-    OD_results = generator.distribute_od_pairs(data, 120)
+    OD_results = generator.distribute_od_pairs(data, batch_size)
     print(OD_results)
 
 
@@ -83,7 +84,7 @@ if __name__ == "__main__":
     for index, row in edge_data.iterrows():
         origin = int(row['init_node'])
         destination = int(row['term_node'])
-        capacity = float(row['capacity'] / 1000)
+        capacity = float(row['capacity'] / 100)
         length = float(row['length'])
         free_flow_time = float(row['free_flow_time'])
 
@@ -102,7 +103,7 @@ if __name__ == "__main__":
 
 
         """
-        从这里开始，106~123行是对节点信号信息和容量及其分量的定义，这里没有写csv信息，而是假设其均匀然后平均分配
+        从这里开始是对节点信号信息和容量及其分量的定义，这里没有写csv信息，而是假设其均匀然后平均分配
         实际情况下这里读入csv文件后直接赋值就行
         """
         for n in nodes:
@@ -130,7 +131,7 @@ if __name__ == "__main__":
     v_index = 0
     pdn = PDNplus.create_ieee14()
     pdn_result = []
-    for i in range(1, 302):
+    for i in range(1, 272):
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
                 vehicle.wait(vehicle.road, vehicle.next_road)
@@ -151,7 +152,7 @@ if __name__ == "__main__":
 
         if i % T == 1 or i == 1:
             OD = OD_results[int(i / 10)]
-            charge_num = random.randint(10, 15)
+            charge_num = random.randint(120, 180)
             charge_v = []
 
             if i > 1 and i % T_pdn == 1:
@@ -240,7 +241,7 @@ if __name__ == "__main__":
     for vehicle in center.vehicles:
         if vehicle.road == -1:
             v.append(vehicle.id)
-    print(v)
+    # print(v)
 
     sum1 = len(v)
     sum2 = 0
@@ -259,7 +260,6 @@ if __name__ == "__main__":
 
     print(f"已到达车辆{sum1}")
     print(f"总共流统计{sum1+sum2}")
-    print("耐改王")
     print(pdn_result)
 
 
