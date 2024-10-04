@@ -15,7 +15,7 @@ csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
 batch_size = 1200
-
+all_log = False
 
 
 class PathProcessor:
@@ -187,7 +187,8 @@ if __name__ == "__main__":
                     if charge_num == 0:
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity["all"], 1)
-                        print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
+                        if new_vehicle.log:
+                            print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
                         center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
                         center.edges[true_path[0]].capacity[next], 1)
                     # print(center.edges[true_path[0]].capacity)
@@ -216,7 +217,8 @@ if __name__ == "__main__":
                                                     true_path, 80, 64, 0.05, 0.15, 0, {}, 1)  #电能单位为千瓦时
                     if charge_num == 0:
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity["all"], 1)
-                        print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
+                        if new_vehicle.log:
+                            print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
                         center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(center.edges[true_path[0]].capacity[next], 1)
                     center.vehicles.append(new_vehicle)
                     if charge_num == 0:
@@ -236,31 +238,31 @@ if __name__ == "__main__":
 
         # print(f'for {i}: {center.calculate_lost()}')
 
+    if all_log:
+        v = []
+        for vehicle in center.vehicles:
+            if vehicle.road == -1:
+                v.append(vehicle.id)
+        # print(v)
 
-    v = []
-    for vehicle in center.vehicles:
-        if vehicle.road == -1:
-            v.append(vehicle.id)
-    # print(v)
-
-    sum1 = len(v)
-    sum2 = 0
-    for edge in center.edges.values():
-        print(f"{edge.id} : {edge.capacity}")
-        print(' ')
-        sum2 += edge.capacity['all'][1]
+        sum1 = len(v)
+        sum2 = 0
+        for edge in center.edges.values():
+            print(f"{edge.id} : {edge.capacity}")
+            print(' ')
+            sum2 += edge.capacity['all'][1]
 
 
-    for cs in center.charge_stations.values():
-        print(f"{cs.id} : {cs.capacity}")
-        print(f"{cs.id} : {cs.dispatch}")
-        print(f"{cs.id} : {cs.queue}")
-        print(f"{cs.id} : {cs.charge}")
-        print(' ')
+        for cs in center.charge_stations.values():
+            print(f"{cs.id} : {cs.capacity}")
+            print(f"{cs.id} : {cs.dispatch}")
+            print(f"{cs.id} : {cs.queue}")
+            print(f"{cs.id} : {cs.charge}")
+            print(' ')
 
-    print(f"已到达车辆{sum1}")
-    print(f"总共流统计{sum1+sum2}")
-    print(pdn_result)
+        print(f"已到达车辆{sum1}")
+        print(f"总共流统计{sum1+sum2}")
+        print(pdn_result)
 
 
 

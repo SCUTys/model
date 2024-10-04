@@ -154,7 +154,7 @@ class DispatchCenter:
 
 
 class Vehicle:
-    def __init__(self, id, center, origin, destination, distance, road, next_road, path, Emax, E, Ewait, Edrive, iswait, charge, index=0, charging = False):
+    def __init__(self, id, center, origin, destination, distance, road, next_road, path, Emax, E, Ewait, Edrive, iswait, charge, index=0, charging = False, log = False):
         """
         存储车辆信息
         :param id: 车辆id
@@ -173,6 +173,7 @@ class Vehicle:
         :param charge: 分配的充电站id与充电桩功率（id, power）
         :param index: 坐标符，在path中指向下一道路
         :param charging: 是否在充电
+        :param log：是否打印相关行为信息
         """
         self.id = id
         self.center = center
@@ -190,6 +191,7 @@ class Vehicle:
         self.charge = charge #充电站id, 充电功率， 默认和对应node的id相同（）
         self.index = index
         self.charging = False
+        self.log = log
 
     def drive(self, rate=1):
         """
@@ -208,7 +210,8 @@ class Vehicle:
         if drive_distance < self.distance:
             self.distance -= drive_distance
             self.E -= drive_distance * self.Edrive
-            print(f"车辆 {self.id} 行驶了 {drive_distance} ")
+            if self.log:
+                print(f"车辆 {self.id} 行驶了 {drive_distance} ")
 
         else:
             self.E -= self.distance * self.Edrive
@@ -220,11 +223,13 @@ class Vehicle:
                     if self.destination == self.charge[0]:
                         self.enter_charge()
                 else:
-                    print(f'车辆 {self.id} 已到达终点{self.destination},不再行驶')
+                    if self.log:
+                        print(f'车辆 {self.id} 已到达终点{self.destination},不再行驶')
                     road = self.center.edges[self.road]
                     road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
                     road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], -1)
-                    print(f'在车辆 {self.id} destination中道路{self.road}总流量-1')
+                    if self.log:
+                        print(f'在车辆 {self.id} destination中道路{self.road}总流量-1')
                     self.road = -1
             elif self.check_charge():
                 self.enter_charge()
@@ -245,11 +250,10 @@ class Vehicle:
         """
         road = self.center.edges[self.road]
         junction = self.center.nodes[road.destination]
-        if fr == to:
-            print(f"发现目标, id:{self.id}, path:{self.path}, road:{self.road}, next_road:{self.next_road}, {self.origin},{self.destination}")
         g, c= junction.signal[(fr, to)]
         cap, x = road.capacity[to]
-        print(f"车辆 {self.id} 正在等待 ")
+        if self.log:
+            print(f"车辆 {self.id} 正在等待 ")
         if self.is_wait == 0 and self.distance == 0:
             if c != 0:
                 self.is_wait = 0.5 * c * ((1 - g / c) ** 2 / (1 - min(1, x / cap) * g / c))
@@ -261,7 +265,8 @@ class Vehicle:
             else:
                 self.is_wait = 0.001
                 self.E -= self.is_wait * self.Ewait
-            print(f"车辆 {self.id} 需要的等待时间为{self.is_wait} ")
+            if self.log:
+                print(f"车辆 {self.id} 需要的等待时间为{self.is_wait} ")
             junction.wait.append((self.id, self.is_wait))
         elif self.is_wait > 0:
             if self.is_wait <= t:
@@ -290,7 +295,8 @@ class Vehicle:
                 road = self.center.edges[self.road]
                 road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], -1)
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
-                print(f'在车辆 {self.id} change_road中道路{self.road}总流量-1')
+                if self.log:
+                    print(f'在车辆 {self.id} change_road中道路{self.road}总流量-1')
 
             self.road = self.next_road
 
@@ -308,9 +314,11 @@ class Vehicle:
             else:
                 self.distance = 0.001
             road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
-            print(f'在车辆 {self.id} change_road中道路{self.road}总流量+1')
+            if self.log:
+                print(f'在车辆 {self.id} change_road中道路{self.road}总流量+1')
             road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], 1)
-            print(f"车辆 {self.id} 转到{self.road}")
+            if self.log:
+                print(f"车辆 {self.id} 转到{self.road}")
 
 
     def check_charge(self):
@@ -333,13 +341,14 @@ class Vehicle:
         :return:
         """
         self.charging = True
-        if self.origin == self.charge[0]:
+        if self.origin == self.charge[0] and self.log:
             print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}")
         else:
             road = self.center.edges[self.road]
             road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], -1)
             road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
-            print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}, 同时道路{self.road}流量-1")
+            if self.log:
+                print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}, 同时道路{self.road}流量-1")
         self.center.charge_stations[self.charge[0]].dispatch = {
             i: a for i, a in self.center.charge_stations[self.charge[0]].dispatch.items() if self.id != i
         }
@@ -351,7 +360,8 @@ class Vehicle:
         :param rate:比率，用于缓解误差
         :return:
         """
-        print(f'车辆 {self.id} 在{self.charge}充完电离开')
+        if self.log:
+            print(f'车辆 {self.id} 在{self.charge}充完电离开')
         self.charging = False
         self.E = self.Emax
         if self.destination != self.charge[0]:
@@ -364,12 +374,9 @@ class Vehicle:
                 self.charge = {}
                 self.change_road(rate, True)
         else:
-            print(f'车辆{self.id}已到达终点{self.destination},不再行驶')
-            # road = self.center.edges[self.road]
-            # road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
-            # road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], -1)
+            if self.log:
+                print(f'车辆{self.id}已到达终点{self.destination},不再行驶')
             self.road = -1
-            # print(f'在车辆{self.id}destination中道路{self.road}总流量-1')
 
 
 
@@ -387,7 +394,7 @@ class Vehicle:
 
 
 class Edge:
-    def __init__(self, id, center, origin, destination, length, capacity, free_time, b, power):
+    def __init__(self, id, center, origin, destination, length, capacity, free_time, b, power, log = False):
         """
         道路对象类定义
         :param id: id
@@ -399,6 +406,7 @@ class Edge:
         :param free_time: 无车流影响时正常行驶所需时间
         :param b: bpr公式参数
         :param power: bpr公式参数
+        :param log:是否打印相关行为信息
         """
         self.id = id
         self.center = center
@@ -409,6 +417,7 @@ class Edge:
         self.free_time = free_time
         self.b = b
         self.power = power
+        self.log = log
 
     def calculate_drive(self):
         """
@@ -444,7 +453,7 @@ class Node:
 
 
 class ChargeStation:
-    def __init__(self, id, center, dispatch, charge, queue, capacity, pile, cost = 0):
+    def __init__(self, id, center, dispatch, charge, queue, capacity, pile, cost = 0, log = False):
         """
         :param id:充电站id，与道路id一致
         :param center:所属控制中心(对象)
@@ -453,6 +462,7 @@ class ChargeStation:
         :param queue: {power: {id, t}} 表示正在站内排队等候充电的车辆与其已等待时间
         :param capacity: 最大容量
         :param pile: (power: num) 表示站内充电桩功率与数量
+        :param log: 是否打印行为信息
         """
 
         self.id = id    #这里假设和路口一致
@@ -463,6 +473,7 @@ class ChargeStation:
         self.capacity = capacity
         self.pile = pile
         self.cost = 0
+        self.log = log
 
 
     def process(self):
