@@ -67,7 +67,7 @@ def main(file_path, od_pairs):
 def distribute_od_pairs(data_dict, elements_per_category=100):
     # 计算总个数和组数
     total_count = sum(data_dict.values())
-    print(total_count)
+    #print(total_count)
     group_count = total_count // elements_per_category #+ (1 if total_count % elements_per_category else 0)
 
     # 初始化组
