@@ -10,7 +10,7 @@ class DispatchCenter:
     """
     调度中心，存储所有数据并调度车辆
     """
-    def __init__(self, vehicles, edges, nodes, charge_stations):
+    def __init__(self, vehicles, edges, nodes, charge_stations, log = False):
         """
         存储四大主体的集合，都是直接存的对象而非id
         :param vehicles: 车辆集合（对象）
@@ -22,6 +22,7 @@ class DispatchCenter:
         self.edges = edges
         self.nodes = nodes
         self.charge_stations = charge_stations
+        self.log = log
 
     def vehicle(self):
         return self.vehicles
@@ -79,76 +80,154 @@ class DispatchCenter:
         :param t:当前时间
         :return:无
         """
-        for v in charging_vehicles:
-            vehicle = self.vehicles[v]
-            print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
+
+        #周期获取充电需求
+        total_charge_cost = {}
+        for charge_station in self.charge_stations.values():
+            total_charge_cost[f"EVCS {charge_station.id}"] = charge_station.cost / 60 / 1000
+            charge_station.cost = 0
+
+
+
+        #算法优化调度（这里还是写个随机数）
+        def assign_cs(vehicle):
             if vehicle.origin in cs:
+                charge_id = vehicle.origin
                 vehicle.charge = (vehicle.origin, list(self.charge_stations[vehicle.origin].pile.keys())
-                                    [random.randint(0, len(list(self.charge_stations[vehicle.origin].pile.keys()))-1)])
-                print(f"车辆 {vehicle.id} 分配到充电站{vehicle.origin} (起点), 充电功率为{vehicle.charge[1]}")
-                vehicle.enter_charge()
+                [random.randint(0, len(list(self.charge_stations[vehicle.origin].pile.keys())) - 1)])
             elif vehicle.destination in cs:
+                charge_id = vehicle.destination
                 vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
-                                    [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys()))-1)])
-                print(f"车辆 {vehicle.id} 分配到充电站{vehicle.destination} (终点), 充电功率为{vehicle.charge[1]}")
-                time = 0
-                for i in vehicle.path:
-                    time += self.edges[i].calculate_drive()
-                self.charge_stations[vehicle.charge[0]].dispatch[v] = t + time
-                self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
-                self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys())) - 1)])
+            else:
+                charge_id = random.choice(cs)
+                vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
+                [random.randint(0, len(list(self.charge_stations[charge_id].pile.keys())) - 1)])
+
+            if self.log:
+                print(f"车辆 {vehicle.id} 分配到充电站{charge_id}, 充电功率为{vehicle.charge[1]}")
+
+        def calculate_path(path):
+            return [edge.id for i in range(len(path) - 1) for edge in self.edges.values() if
+                    edge.origin == path[i] and edge.destination == path[i + 1]]
+
+        def process_path(vehicle):
+            path1 = random.choice(path_results[(vehicle.origin, vehicle.charge[0])][0])
+            path2 = random.choice(path_results[(vehicle.charge[0], vehicle.destination)][0])
+            vehicle.path = calculate_path(path1) + calculate_path(path2)
+            vehicle.road = vehicle.path[0]
+            vehicle.next_road = vehicle.path[1]
+
+
+        # #调度结果影响交通
+        def update_flow(vehicle, path, t):
+            time = sum(self.edges[i].calculate_drive() for i in path)
+            self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = t + time
+            self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
+            if vehicle.next_road != -1:
+                self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(
+                    self.edges[vehicle.road].capacity[vehicle.next_road], 1)
+            if self.log:
                 print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
+
+        def vehicle_process(vehicle):
+            if vehicle.charge[0] == vehicle.origin:
+                vehicle.enter_charge()
+            elif vehicle.charge[0] == vehicle.destination:
+                update_flow(vehicle, vehicle.path, t)
                 vehicle.drive()
             else:
-                c_index = cs[random.randint(0, len(cs) - 1)]  ##这里没并算法就写个随机数吧
-                vehicle.charge = (c_index, list(self.charge_stations[c_index].pile.keys())
-                                    [random.randint(0, len(list(self.charge_stations[c_index].pile.keys()))-1)])
-                print(f"车辆 {vehicle.id} 分配到充电站{c_index}, 充电功率为{vehicle.charge[1]} ")
-                if vehicle.origin != vehicle.charge[0]:
-                    path1 = path_results[(vehicle.origin, vehicle.charge[0])][0]
-                else:
-                    path1 = []
-                if vehicle.destination != vehicle.charge[0]:
-                    path2 = path_results[(vehicle.charge[0], vehicle.destination)][0]
-                else:
-                    path2 = []
-                if len(path1) >= 1:
-                    path11 = path1[random.randint(0, len(path1) - 1)]
-                else:
-                    path11 = []
-
-                if len(path2) >= 1:
-                    path22 = path2[random.randint(0, len(path2) - 1)]
-                else:
-                    path22 = []
-
-                true_path2 = []
-                true_path1 = []
-                for i in range(0, len(path11) - 1):
-                    for edge in self.edges.values():
-                        if edge.origin == path11[i] and edge.destination == path11[i + 1]:
-                            true_path1.append(edge.id)
-                for i in range(0, len(path22) - 1):
-                    for edge in self.edges.values():
-                        if edge.origin == path22[i] and edge.destination == path22[i + 1]:
-                            true_path2.append(edge.id)
-                vehicle.path = true_path1 + true_path2
-                print(f"重新分配的路径{vehicle.path}")
-                if len(vehicle.path) > 0:
-                    vehicle.distance = self.edges[vehicle.path[0]].length
-                vehicle.road = vehicle.path[0]
-                self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
-                if len(vehicle.path) > 1:
-                    vehicle.next_road = vehicle.path[1]
-                else:
-                    vehicle.next_road = -1
-                self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple( self.edges[vehicle.road].capacity[vehicle.next_road], 1)
-                time = 0
-                for i in true_path1:
-                    time += self.edges[i].calculate_drive()
-                self.charge_stations[vehicle.charge[0]].dispatch[v] = t + time
-                print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
+                process_path(vehicle)
+                update_flow(vehicle, vehicle.path, t)
                 vehicle.drive()
+
+        #执行主程序
+        for v in charging_vehicles:
+            vehicle = self.vehicles[v]
+            if self.log:
+                print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
+            assign_cs(vehicle)
+            vehicle_process(vehicle)
+
+
+        #备用版本（也就是老版本，可以对照检测下有无出错）
+        # for v in charging_vehicles:
+        #     vehicle = self.vehicles[v]
+        #     if self.log:
+        #         print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
+        #     if vehicle.origin in cs:
+        #         vehicle.charge = (vehicle.origin, list(self.charge_stations[vehicle.origin].pile.keys())
+        #                             [random.randint(0, len(list(self.charge_stations[vehicle.origin].pile.keys()))-1)])
+        #         if self.log:
+        #             print(f"车辆 {vehicle.id} 分配到充电站{vehicle.origin} (起点), 充电功率为{vehicle.charge[1]}")
+        #         vehicle.enter_charge()
+        #     elif vehicle.destination in cs:
+        #         vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
+        #                             [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys()))-1)])
+        #         if self.log:
+        #            print(f"车辆 {vehicle.id} 分配到充电站{vehicle.destination} (终点), 充电功率为{vehicle.charge[1]}")
+        #         time = 0
+        #         for i in vehicle.path:
+        #             time += self.edges[i].calculate_drive()
+        #         self.charge_stations[vehicle.charge[0]].dispatch[v] = t + time
+        #         self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
+        #         self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
+        #         if self.log:
+        #             print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
+        #         vehicle.drive()
+        #     else:
+        #         c_index = cs[random.randint(0, len(cs) - 1)]  ##这里没并算法就写个随机数吧
+        #         vehicle.charge = (c_index, list(self.charge_stations[c_index].pile.keys())
+        #                             [random.randint(0, len(list(self.charge_stations[c_index].pile.keys()))-1)])
+        #         if self.log:
+        #             print(f"车辆 {vehicle.id} 分配到充电站{c_index}, 充电功率为{vehicle.charge[1]} ")
+        #         if vehicle.origin != vehicle.charge[0]:
+        #             path1 = path_results[(vehicle.origin, vehicle.charge[0])][0]
+        #         else:
+        #             path1 = []
+        #         if vehicle.destination != vehicle.charge[0]:
+        #             path2 = path_results[(vehicle.charge[0], vehicle.destination)][0]
+        #         else:
+        #             path2 = []
+        #         if len(path1) >= 1:
+        #             path11 = path1[random.randint(0, len(path1) - 1)]
+        #         else:
+        #             path11 = []
+        #
+        #         if len(path2) >= 1:
+        #             path22 = path2[random.randint(0, len(path2) - 1)]
+        #         else:
+        #             path22 = []
+        #
+        #         true_path2 = []
+        #         true_path1 = []
+        #         for i in range(0, len(path11) - 1):
+        #             for edge in self.edges.values():
+        #                 if edge.origin == path11[i] and edge.destination == path11[i + 1]:
+        #                     true_path1.append(edge.id)
+        #         for i in range(0, len(path22) - 1):
+        #             for edge in self.edges.values():
+        #                 if edge.origin == path22[i] and edge.destination == path22[i + 1]:
+        #                     true_path2.append(edge.id)
+        #         vehicle.path = true_path1 + true_path2
+        #         if self.log:
+        #             print(f"重新分配的路径{vehicle.path}")
+        #         if len(vehicle.path) > 0:
+        #             vehicle.distance = self.edges[vehicle.path[0]].length
+        #         vehicle.road = vehicle.path[0]
+        #         self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
+        #         if len(vehicle.path) > 1:
+        #             vehicle.next_road = vehicle.path[1]
+        #         else:
+        #             vehicle.next_road = -1
+        #         self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple( self.edges[vehicle.road].capacity[vehicle.next_road], 1)
+        #         time = 0
+        #         for i in true_path1:
+        #             time += self.edges[i].calculate_drive()
+        #         self.charge_stations[vehicle.charge[0]].dispatch[v] = t + time
+        #         if self.log:
+        #             print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
+        #         vehicle.drive()
         return
 
 
@@ -341,8 +420,9 @@ class Vehicle:
         :return:
         """
         self.charging = True
-        if self.origin == self.charge[0] and self.log:
-            print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}")
+        if self.origin == self.charge[0]:
+            if self.log:
+                print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}")
         else:
             road = self.center.edges[self.road]
             road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], -1)

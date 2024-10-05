@@ -17,7 +17,6 @@ num_nodes = 24
 batch_size = 1200
 all_log = False
 
-
 class PathProcessor:
     def __init__(self, file_path, od_pairs):
         self.file_path = file_path
@@ -65,12 +64,14 @@ if __name__ == "__main__":
     processor = PathProcessor(csv_net_path, od_pairs)
     G = processor.build_graph(csv_net_path)
     path_results = processor.process_paths()
-    print(path_results)
+    if all_log:
+        print(path_results)
 
     generator = ODGenerator(csv_od_path)
     data = generator.load()
     OD_results = generator.distribute_od_pairs(data, batch_size)
-    print(OD_results)
+    if all_log:
+        print(OD_results)
 
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
@@ -155,15 +156,15 @@ if __name__ == "__main__":
             charge_num = random.randint(120, 180)
             charge_v = []
 
-            if i > 1 and i % T_pdn == 1:
-                total_charge_cost = {}
-                for cs in center.charge_stations.values():
-                    total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
-                    cs.cost = 0
-                PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
-                PDNplus.run(pdn, 30)
-                pdn_loss = PDNplus.calculate_loss(pdn, 140)
-                pdn_result.append(pdn_loss)
+            # if i > 1 and i % T_pdn == 1:
+            #     total_charge_cost = {}
+            #     for cs in center.charge_stations.values():
+            #         total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
+            #         cs.cost = 0
+            #     PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
+            #     PDNplus.run(pdn, 30)
+            #     pdn_loss = PDNplus.calculate_loss(pdn, 140)
+            #     pdn_result.append(pdn_loss)
                 # print(pdn_loss)
                 # print(555)
 
@@ -262,7 +263,3 @@ if __name__ == "__main__":
 
         print(f"已到达车辆{sum1}")
         print(f"总共流统计{sum1+sum2}")
-        print(pdn_result)
-
-
-
