@@ -84,8 +84,10 @@ class DispatchCenter:
         #周期获取充电需求
         total_charge_cost = {}
         for charge_station in self.charge_stations.values():
-            total_charge_cost[f"EVCS {charge_station.id}"] = charge_station.cost / 60 / 1000
+            total_charge_cost[f"EVCS {charge_station.id}"] = charge_station.cost / 10 / 1000
             charge_station.cost = 0
+        print(total_charge_cost)
+        print(222)
 
 
 

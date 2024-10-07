@@ -11,9 +11,17 @@ from pandapower.networks import case14
 if __name__ == "__main__":
     net = PDNplus.create_ieee14()
     # pp.diagnostic(net)
-    pp.runpp(net)
-    print(net.res_gen)
+    print(net.gen)
+    print(net.bus)
 
-    loss = PDNplus.calculate_loss(net, 140)
-    print(loss)
+
+    pp.runopp(net)
+    print("result")
+    print(111)
+    print(net.res_bus)
+    print(net.res_gen)
+    print(net.res_load)
+
+    # loss = PDNplus.calculate_loss(net, 140)
+    # print(loss)
 
