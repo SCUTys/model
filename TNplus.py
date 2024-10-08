@@ -1,5 +1,5 @@
 import random
-
+import numpy as np
 t = 1 #min
 T = 1.5 #min
 k = 1
@@ -72,12 +72,12 @@ class DispatchCenter:
         return sum_road
 
 
-    def dispatch(self, charging_vehicles, path_results, t):
+    def dispatch(self, charging_vehicles, path_results, current_time):
         """
         根据某种方式调度要充电的车，这里由于没接算法写了个随机数
         :param charging_vehicles:需要调度的车辆id集合
         :param path_results:之前根据OD生成的路径（已途径节点表征）
-        :param t:当前时间
+        :param current_time:当前时间
         :return:无
         """
 
@@ -89,9 +89,19 @@ class DispatchCenter:
         print(total_charge_cost)
         print(222)
 
+        prob = []
+        #根据需求生成电价（也是示例）
+        if 0 not in list(total_charge_cost.values()):
+            cost = list(total_charge_cost.values())
+            log_reversed_cost = [-np.log(x) for x in cost]
+            exp_prob = np.exp(log_reversed_cost)
+            softmax_prob = exp_prob / np.sum(exp_prob)
+            prob = softmax_prob / np.sum(softmax_prob)
+        else:
+            prob = [1 / len(cs)] * 6
 
 
-        #算法优化调度（这里还是写个随机数）
+            #算法优化调度（这里还是写个随机数）
         def assign_cs(vehicle):
             if vehicle.origin in cs:
                 charge_id = vehicle.origin
@@ -102,7 +112,7 @@ class DispatchCenter:
                 vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
                 [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys())) - 1)])
             else:
-                charge_id = random.choice(cs)
+                charge_id = random.choices(cs, prob)[0]
                 vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
                 [random.randint(0, len(list(self.charge_stations[charge_id].pile.keys())) - 1)])
 
@@ -122,9 +132,9 @@ class DispatchCenter:
 
 
         # #调度结果影响交通
-        def update_flow(vehicle, path, t):
+        def update_flow(vehicle, path, current_time):
             time = sum(self.edges[i].calculate_drive() for i in path)
-            self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = t + time
+            self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = current_time + time
             self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
             if vehicle.next_road != -1:
                 self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(
@@ -136,11 +146,11 @@ class DispatchCenter:
             if vehicle.charge[0] == vehicle.origin:
                 vehicle.enter_charge()
             elif vehicle.charge[0] == vehicle.destination:
-                update_flow(vehicle, vehicle.path, t)
+                update_flow(vehicle, vehicle.path, current_time)
                 vehicle.drive()
             else:
                 process_path(vehicle)
-                update_flow(vehicle, vehicle.path, t)
+                update_flow(vehicle, vehicle.path, current_time)
                 vehicle.drive()
 
         #执行主程序
