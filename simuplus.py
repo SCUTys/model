@@ -192,8 +192,6 @@ if __name__ == "__main__":
                             print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
                         center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
                         center.edges[true_path[0]].capacity[next], 1)
-                    # print(center.edges[true_path[0]].capacity)
-                    # print('mlgbdcl')
                     center.vehicles.append(new_vehicle)
                     if charge_num == 0:
                         new_vehicle.drive()
