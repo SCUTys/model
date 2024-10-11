@@ -15,7 +15,7 @@ csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
 batch_size = 1200
-all_log = False
+all_log = True
 
 class PathProcessor:
     def __init__(self, file_path, od_pairs):
@@ -64,14 +64,14 @@ if __name__ == "__main__":
     processor = PathProcessor(csv_net_path, od_pairs)
     G = processor.build_graph(csv_net_path)
     path_results = processor.process_paths()
-    if all_log:
-        print(path_results)
+    # if all_log:
+    #     print(path_results)
 
     generator = ODGenerator(csv_od_path)
     data = generator.load()
     OD_results = generator.distribute_od_pairs(data, batch_size)
-    if all_log:
-        print(OD_results)
+    # if all_log:
+    #     print(OD_results)
 
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
@@ -133,6 +133,7 @@ if __name__ == "__main__":
     pdn = PDNplus.create_ieee14()
     pdn_result = []
     for i in range(1, 272):
+        print(f"主循环 {i}")
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
                 vehicle.wait(vehicle.road, vehicle.next_road)
@@ -142,16 +143,19 @@ if __name__ == "__main__":
                 vehicle.drive(vehicle.road)
 
 
-
         """
         这里充电站的信息可改成用csv读入
         """
         if i == 1:
+            if all_log:
+                print("初始化充电站")
             for i in TNplus.cs:
-                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {50: [], 120: []}, {50: [], 120: []}, 200, {50: 100, 120: 100} , 0)  #规范充电桩功率为kw
+                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {50: [], 120: []}, {50: [], 120: []}, 200, {50: 100, 120: 100} , False)  #规范充电桩功率为kw
 
 
         if i % T == 1 or i == 1:
+            if all_log:
+                print(f"在循环i={i}时加入新OD")
             OD = OD_results[int(i / 10)]
             charge_num = random.randint(120, 180)
             charge_v = []
@@ -174,9 +178,9 @@ if __name__ == "__main__":
                 if len(choice) > 1:
                     path = choice[random.randint(1, len(choice)) - 1]
                     true_path = []
-                    for i in range(0, len(path) - 1):
+                    for j in range(0, len(path) - 1):
                         for edge in center.edges.values():
-                            if edge.origin == path[i] and edge.destination == path[i + 1]:
+                            if edge.origin == path[j] and edge.destination == path[j + 1]:
                                 true_path.append(edge.id)
                     if len(true_path) > 1:
                         next = true_path[1]
@@ -203,9 +207,9 @@ if __name__ == "__main__":
                 elif len(choice) == 1:
                     path = choice[0]
                     true_path = []
-                    for i in range(0, len(path) - 1):
+                    for j in range(0, len(path) - 1):
                         for edge in center.edges.values():
-                            if edge.origin == path[i] and edge.destination == path[i + 1]:
+                            if edge.origin == path[j] and edge.destination == path[j + 1]:
                                 true_path.append(edge.id)
                     if len(true_path) > 1:
                         next = true_path[1]
@@ -228,6 +232,8 @@ if __name__ == "__main__":
 
 
                 v_index += 1
+            if all_log:
+                print(f"传进dispatch的参数{i}")
             center.dispatch(charge_v, path_results, i)
 
 

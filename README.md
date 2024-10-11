@@ -131,7 +131,7 @@ simuplus.py里，main函数前半部分有读入csv数据然后定义道路和�
 
 每个充电站包括占大部分的充电桩可调负载和小部分的固定日常负载，图示数据为超充和快充各100根桩的情况。
 
-    pp.create_load(net, bus=1, p_mw=17, q_mvar=3.4, max_p_mw=17, max_q_mvar=3.4, name="EVCS 1", controllable=True)
+    pp.create_load(net, bus=1, p_mw=17, q_mvar=3.4, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 1", controllable=True)
     pp.create_load(net, bus=1, p_mw=0.03, q_mvar=0.006, name="EVCS 1 Auxiliary Load")
 
 
@@ -158,4 +158,10 @@ simuplus.py里，main函数前半部分有读入csv数据然后定义道路和�
 
 10.6：将修改电网部分，道路信息输出拟加入折线图功能
 
-10.8：讨论结果：路径调度加入电量考虑；加入电价考虑（接口）并丰富数据监测接口，未来该模型仍然主交通端调度。电网可以OPF但是结果有点反直觉，还得学emmmm
+10.8讨论结果：路径调度加入电量考虑；加入电价考虑（接口）并丰富数据监测接口，未来该模型仍然主交通端调度。电网可以OPF但是结果有点反直觉，还得学emmmm
+
+10.8：dispatch中加入数据接口
+
+10.10：在路径调度中加入电量考虑， 接入充电站排队论估算函数
+
+10.11：修复了充电站dispatch中预计到达时间显示错误的bug
