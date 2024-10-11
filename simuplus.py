@@ -149,9 +149,9 @@ if __name__ == "__main__":
         if i == 1:
             if all_log:
                 print("初始化充电站")
-            for i in TNplus.cs:
-                center.charge_stations[i] = TNplus.ChargeStation(i, center, {}, {50: [], 120: []}, {50: [], 120: []}, 200, {50: 100, 120: 100} , False)  #规范充电桩功率为kw
-
+            for j in TNplus.cs:
+                center.charge_stations[j] = TNplus.ChargeStation(j, center, {}, {50: [], 120: []}, {50: [], 120: []}, 200, {50: 100, 120: 100} ,
+                                                                 {50: (0, 0), 120: (0, 0)}, {50: 0, 120: 0}, False)  #规范充电桩功率为kw
 
         if i % T == 1 or i == 1:
             if all_log:

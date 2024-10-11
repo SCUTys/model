@@ -3,7 +3,7 @@ import numpy as np
 import math
 
 t = 1 #min
-T = 1.5 #min
+T = 10 #min
 k = 1
 cs = [1, 5, 11, 15, 16, 20]
 
@@ -38,15 +38,16 @@ class DispatchCenter:
     def charge_station(self):
         return self.charge_stations
 
-    def solve_tuple(self, tu, n):
+    def solve_tuple(self, tu, n, i = 1):
         """
         更新元组值的工具函数
+        :param i:
         :param tu: 元组
         :param n: 改变量（+）
         :return: 修改后元组
         """
         tu_list = list(tu)
-        tu_list[1] += n
+        tu_list[i] += n
         return tuple(tu_list)
 
 
@@ -91,6 +92,25 @@ class DispatchCenter:
         print(total_charge_cost)
         print(222)
 
+        #周期获取每个充电站该周期内到达车数（这里按功率直接分开）
+        arrive_num = {}
+        for charge_station in self.charge_stations.values():
+            for pile in charge_station.pile.keys():
+                arrive_num[(charge_station.id, pile)] = charge_station.v_arrive[pile] / T
+                charge_station.v_arrive[pile] = 0
+
+        #周期获取每个充电站车辆平均充电时长
+        charge_time = {}
+        for charge_station in self.charge_stations.values():
+            for pile in charge_station.pile.keys():
+                if charge_station.t_cost[pile][1] > 0:
+                    charge_time[(charge_station.id, pile)] = charge_station.t_cost[pile][0] / charge_station.t_cost[pile][1]
+                else:
+                    charge_time[(charge_station.id, pile)] = 0.1 #待商榷
+                charge_station.t_cost[pile] = self.solve_tuple(charge_station.t_cost[pile],
+                                                                -charge_station.t_cost[pile][0], 0)
+                charge_station.t_cost[pile] = self.solve_tuple(charge_station.t_cost[pile],
+                                                                -charge_station.t_cost[pile][1], 1)
 
 
         #根据需求生成电价（也是示例）
@@ -104,23 +124,25 @@ class DispatchCenter:
             cs_prob = [1 / len(cs)] * 6
 
 
-            #算法优化调度（这里还是写个随机数）
-        def check_energy(vehicle, path, eps):
+
+        def calculate_energy(vehicle, path, eps):
             road_time = 0
             junction_time = 0
             for i in range(0, len(path) - 1):
                 road_time += self.edges[path[i]].calculate_drive()
                 node_id = self.edges[path[i]].destination
                 junction_time += self.nodes[node_id].calculate_wait(path[i], path[i + 1])
-            cs_time = self.charge_stations[vehicle.charge[0]].calculate_wait_cs[vehicle.charge[1]]
-            if vehicle.E >=  road_time + junction_time + cs_time + eps:
-                return True
-            else:
-                return False
+            charge_s = self.charge_stations[vehicle.charge[0]]
+            cs_time = charge_s.calculate_wait_cs[vehicle.charge[1],
+                                                 charge_s.pile[vehicle.charge[1]],
+                                                 charge_s.capacity * charge_s.pile[vehicle.charge[1]] / sum(charge_s.pile.values()),
+                                                 arrive_num[vehicle.charge[0], vehicle.charge[1]],
+                                                 charge_time[vehicle.charge[0], vehicle.charge[1]]]
+            return road_time + junction_time + cs_time + eps
 
 
 
-
+        #算法优化调度（这里还是写个随机数）
         def assign_cs(vehicle):
             if vehicle.origin in cs:
                 charge_id = vehicle.origin
@@ -154,7 +176,8 @@ class DispatchCenter:
         def update_flow(vehicle, path):
             time = sum(self.edges[i].calculate_drive() for i in path)
             self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = current_time + time
-            print(f"车辆{vehicle.id} 在 {current_time}影响交通流")
+            if self.log:
+                print(f"车辆{vehicle.id} 在 {current_time}影响交通流")
             self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
             if vehicle.next_road != -1:
                 self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(
@@ -465,6 +488,7 @@ class Vehicle:
             i: a for i, a in self.center.charge_stations[self.charge[0]].dispatch.items() if self.id != i
         }
         self.center.charge_stations[self.charge[0]].queue[self.charge[1]].append((self.id, 0))
+        self.center.charge_stations[self.charge[0]].v_arrive[self.charge[1]] += 1
 
     def leave_charge(self, rate = 0):
         """
@@ -572,7 +596,7 @@ class Node:
 
 
 class ChargeStation:
-    def __init__(self, id, center, dispatch, charge, queue, capacity, pile, log = False, cost = 0,  t_cost = [0, 0], v_arrive = 0):
+    def __init__(self, id, center, dispatch, charge, queue, capacity, pile, t_cost, v_arrive, log = False, cost = 0):
         """
         :param id:充电站id，与道路id一致
         :param center:所属控制中心(对象)
@@ -583,10 +607,14 @@ class ChargeStation:
         :param pile: (power: num) 表示站内充电桩功率与数量
         :param log: 是否打印行为信息
         :param cost：统计上一T内充电用量
-        :param t_cost：统计上一时段内所有充电车辆的总数量与总时长
+        :param t_cost：{power: (t, num)}统计上一时段内所有充电车辆的总数量与总时长
         :param v_arrive：统计上一时段内到达车辆数
         """
 
+        # if v_arrive is None:
+        #     v_arrive = {}
+        # if t_cost is None:
+        #     t_cost = {}
         self.id = id    #这里假设和路口一致
         self.center = center
         self.dispatch = dispatch
@@ -596,8 +624,8 @@ class ChargeStation:
         self.pile = pile
         self.log = log
         self.cost = 0
-        self.t_cost = [0, 0]
-        self.v_arrive = 0
+        self.t_cost = t_cost
+        self.v_arrive = v_arrive
 
     def process(self):
         """
@@ -640,6 +668,8 @@ class ChargeStation:
                     self.cost += p / 60 * extra_time[0]
                     extra_time.pop(0)
                 self.charge[p].append((v_id, v_t))
+                self.t_cost[p] = self.center.solve_tuple(self.t_cost[p], v_t, 0)
+                self.t_cost[p] = self.center.solve_tuple(self.t_cost[p], 1, 1)
                 self.queue[p].pop(0)
 
             if len(self.queue[p]) > 0:
@@ -648,13 +678,13 @@ class ChargeStation:
 
 
     def calculate_wait_cs(self, power, s, k, l, m):
-        s = self.pile[power]
-        k = self.capacity * self.pile[power]/ sum(self.pile.values())
-        l = self.v_arrive / T
-        if self.t_cost[1] != 0:
-            m = self.t_cost[0] / self.t_cost[1]
-        else:
-            m = 0.001
+        # s = self.pile[power]
+        # k = self.capacity * self.pile[power]/ sum(self.pile.values())
+        # l = self.v_arrive / T
+        # if self.t_cost[1] != 0:
+        #     m = self.t_cost[0] / self.t_cost[1]
+        # else:
+        #     m = 1
         rou = l / m
         rou_s = rou / s
         p_0 = 0
