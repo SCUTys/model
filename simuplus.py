@@ -15,7 +15,7 @@ csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
 batch_size = 1200
-all_log = False
+all_log = True
 
 class PathProcessor:
     def __init__(self, file_path, od_pairs):
@@ -45,7 +45,7 @@ class ODGenerator:
         data_dict = { (row['O'], row['D']): int(row['Ton']/10) for _, row in df.iterrows()}
         return data_dict
 
-    def distribute_od_pairs(self, data_dict, elements_per_category=120):
+    def distribute_od_pairs(self, data_dict, elements_per_category):
         # 计算总个数和组数
         return ld.distribute_od_pairs(data_dict, elements_per_category)
 
