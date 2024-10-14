@@ -15,7 +15,7 @@ csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
 batch_size = 1200
-all_log = True
+all_log = False
 
 class PathProcessor:
     def __init__(self, file_path, od_pairs):
@@ -107,11 +107,6 @@ if __name__ == "__main__":
         从这里开始是对节点信号信息和容量及其分量的定义，这里没有写csv信息，而是假设其均匀然后平均分配
         实际情况下这里读入csv文件后直接赋值就行
         """
-        for n in nodes:
-            for enter in center.nodes[n].enter:
-                for off in center.nodes[n].off:
-                    if enter != -1 and off != -1:
-                        center.nodes[n].signal[(enter, off)] = (1.5 / (center.nodes[n].edge_num / 2), 1.5)
 
         # print(edge_id, center, origin, destination, length)
         edge = TNplus.Edge(edge_id, center, origin, destination, length, {}, free_flow_time,0.15, 4)
@@ -126,6 +121,17 @@ if __name__ == "__main__":
         for off in destination.off:
             edge.capacity[off] = (edge.capacity['all'][0] / (destination.edge_num / 2 - 1), 0)
 
+    for n in nodes:
+        for enter in center.nodes[n].enter:
+            for off in center.nodes[n].off:
+                if enter != -1 and off != -1:
+                    center.nodes[n].signal[(enter, off)] = (1.5 / (center.nodes[n].edge_num / 2), 1.5)
+
+    if all_log:
+        for node in center.nodes.values():
+            print("测试信号信息")
+            print(node.signal)
+
 
 
 
@@ -133,7 +139,8 @@ if __name__ == "__main__":
     pdn = PDNplus.create_ieee14()
     pdn_result = []
     for i in range(1, 272):
-        print(f"主循环 {i}")
+        # if all_log:
+        #     print(f"主循环 {i}")
         for vehicle in center.vehicles:
             if vehicle.charging == False and vehicle.is_wait > 0:
                 vehicle.wait(vehicle.road, vehicle.next_road)

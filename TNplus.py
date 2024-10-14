@@ -125,33 +125,66 @@ class DispatchCenter:
 
 
 
-        def calculate_energy(vehicle, path, eps):
+        def calculate_TN_time_and_energy(path, eps):
             road_time = 0
             junction_time = 0
             for i in range(0, len(path) - 1):
                 road_time += self.edges[path[i]].calculate_drive()
                 node_id = self.edges[path[i]].destination
                 junction_time += self.nodes[node_id].calculate_wait(path[i], path[i + 1])
-            charge_s = self.charge_stations[vehicle.charge[0]]
-            cs_time = charge_s.calculate_wait_cs[vehicle.charge[1],
-                                                 charge_s.pile[vehicle.charge[1]],
-                                                 charge_s.capacity * charge_s.pile[vehicle.charge[1]] / sum(charge_s.pile.values()),
-                                                 arrive_num[vehicle.charge[0], vehicle.charge[1]],
-                                                 charge_time[vehicle.charge[0], vehicle.charge[1]]]
-            return road_time + junction_time + cs_time + eps
+            return road_time * vehicle.Edrive + junction_time* vehicle.Ewait + eps
+
+
+        def calculate_cs_wait_time(cs_id, cs_power):
+            charge_s = self.charge_stations[cs_id]
+            cs_time = charge_s.calculate_wait_cs(cs_power,
+                                                 charge_s.pile[cs_power],
+                                                 charge_s.capacity * charge_s.pile[cs_power] / sum(charge_s.pile.values()),
+                                                 arrive_num[cs_id, cs_power],
+                                                 charge_time[cs_id, cs_power])
+            return cs_time
+
+
+        def sort(var, var_cost): #按cost升序排序var中成分
+            list_pairs = zip(var, var_cost)
+            sorted_pairs = sorted(list_pairs, key=lambda x: x[1], reverse=True)
+            sorted_var, sorted_var_cost = zip(*sorted_pairs)
+            sorted_var = list(sorted_var)
+            return sorted_var
 
 
 
         #算法优化调度（这里还是写个随机数）
         def assign_cs(vehicle):
-            if vehicle.origin in cs:
+            if vehicle.origin in cs: #若起点可充电，直接在起点充电
                 charge_id = vehicle.origin
                 vehicle.charge = (vehicle.origin, list(self.charge_stations[vehicle.origin].pile.keys())
                 [random.randint(0, len(list(self.charge_stations[vehicle.origin].pile.keys())) - 1)])
-            elif vehicle.destination in cs:
-                charge_id = vehicle.destination
-                vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
-                [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys())) - 1)])
+            elif vehicle.destination in cs: #若终点可充电，判断是否能到达终点，可以就分配至终点
+                des_path_list = path_results[(vehicle.origin, vehicle.destination)][0]
+                # print(f"起点{vehicle.origin}, 终点{vehicle.destination}")
+                path_id_list = []
+                path_cost = []
+                min_cs_power = min(list(self.charge_stations[vehicle.destination].pile.keys()), key=lambda cs_power: calculate_cs_wait_time(vehicle.destination, cs_power))
+                for path in des_path_list:
+                    p_path = calculate_path(path)
+                    path_id_list.append(p_path)
+                    path_cost.append(calculate_TN_time_and_energy(p_path, 0))
+                sorted_path = sort(path_id_list, path_cost)
+                if vehicle.E >= calculate_cs_wait_time(vehicle.destination, min_cs_power) * vehicle.Ewait + calculate_TN_time_and_energy(sorted_path[0], 0):
+                    charge_id = vehicle.destination
+                    vehicle.charge = (vehicle.destination, min_cs_power)
+                else:
+                    adjusted_prob = [p if cs[i] != vehicle.destination else 0 for i, p in enumerate(cs_prob)]
+                    total_prob = sum(adjusted_prob)
+                    normalized_prob = [p / total_prob for p in adjusted_prob]
+                    charge_id = random.choices(cs, cs_prob)[normalized_prob]
+                    vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
+                    [random.randint(0, len(list(self.charge_stations[charge_id].pile.keys())) - 1)])
+
+                # charge_id = vehicle.destination
+                # vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
+                #     [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys())) - 1)])
             else:
                 charge_id = random.choices(cs, cs_prob)[0]
                 vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
@@ -701,7 +734,10 @@ class ChargeStation:
             L_q = p_0 * (rou**s) * (k - s) * (k - s + 1) / 2 / math.factorial(s)
         else:
             L_q = p_0 * (rou**s) * rou_s * (1 - (rou_s**(k - s + 1)) - (1 - rou_s) * (k - s + 1) * (rou_s**(k - s)))
-        return L_q / l_e
+        if l == 0 or l_e == 0:
+            return 0
+        else:
+            return L_q / l_e
 
 
     def check(self):
