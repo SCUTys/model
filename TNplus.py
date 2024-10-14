@@ -129,7 +129,7 @@ class DispatchCenter:
             road_time = 0
             junction_time = 0
             for i in range(0, len(path) - 1):
-                road_time += self.edges[path[i]].calculate_drive()
+                road_time += self.edges[path[i]].calculate_time()
                 node_id = self.edges[path[i]].destination
                 junction_time += self.nodes[node_id].calculate_wait(path[i], path[i + 1])
             return road_time * vehicle.Edrive + junction_time* vehicle.Ewait + eps
@@ -174,11 +174,12 @@ class DispatchCenter:
                 if vehicle.E >= calculate_cs_wait_time(vehicle.destination, min_cs_power) * vehicle.Ewait + calculate_TN_time_and_energy(sorted_path[0], 0):
                     charge_id = vehicle.destination
                     vehicle.charge = (vehicle.destination, min_cs_power)
+                    vehicle.path = sorted_path[0]
                 else:
                     adjusted_prob = [p if cs[i] != vehicle.destination else 0 for i, p in enumerate(cs_prob)]
                     total_prob = sum(adjusted_prob)
                     normalized_prob = [p / total_prob for p in adjusted_prob]
-                    charge_id = random.choices(cs, cs_prob)[normalized_prob]
+                    charge_id = random.choices(cs, normalized_prob)[0]
                     vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
                     [random.randint(0, len(list(self.charge_stations[charge_id].pile.keys())) - 1)])
 
@@ -187,6 +188,13 @@ class DispatchCenter:
                 #     [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys())) - 1)])
             else:
                 charge_id = random.choices(cs, cs_prob)[0]
+
+                des_path_list = path_results[(vehicle.origin, charge_id)][0]
+                path_id_list = []
+                path_cost = []
+                min_cs_power = min(list(self.charge_stations[charge_id].pile.keys()),
+                                   key=lambda cs_power: calculate_cs_wait_time(charge_id, cs_power))
+
                 vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
                 [random.randint(0, len(list(self.charge_stations[charge_id].pile.keys())) - 1)])
 
@@ -594,7 +602,12 @@ class Edge:
         :return:
         """
         cap, x = self.capacity["all"]
-        return self.length / self.free_time / (1 + self.b * (x / cap)**self.power) * t
+        return self.length / self.free_time / (1 + self.b * (x / cap)**self.power)
+
+
+    def calculate_time(self):
+        cap, x = self.capacity["all"]
+        return self.free_time * (1 + self.b * (x / cap)**self.power)
 
 
 

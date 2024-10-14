@@ -78,7 +78,7 @@ if __name__ == "__main__":
     edge_data = edge_data.dropna()
 
 
-    center = TNplus.DispatchCenter([], {}, {}, {})
+    center = TNplus.DispatchCenter([], {}, {}, {}, False)
     nodes = []
     edge_id = 1
 
@@ -255,7 +255,7 @@ if __name__ == "__main__":
         for vehicle in center.vehicles:
             if vehicle.road == -1:
                 v.append(vehicle.id)
-        # print(v)
+        print(v)
 
         sum1 = len(v)
         sum2 = 0
