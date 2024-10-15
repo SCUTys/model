@@ -5,7 +5,7 @@ import math
 t = 1 #min
 T = 10 #min
 k = 1
-cs = [1, 5, 11, 15, 16, 20]
+cs = [1, 5, 11, 15, 20]
 
 
 class DispatchCenter:
@@ -121,7 +121,7 @@ class DispatchCenter:
             softmax_prob = exp_prob / np.sum(exp_prob)
             cs_prob = softmax_prob / np.sum(softmax_prob)
         else:
-            cs_prob = [1 / len(cs)] * 6
+            cs_prob = [1 / len(cs)] * len(cs)
 
 
 
