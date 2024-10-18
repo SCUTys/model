@@ -9,13 +9,13 @@ import PDNplus
 
 standard_speed = 60 #km/h
 t = 1 #min
-T = 10 #min
+T = 5 #min
 T_pdn = 3 * T  #min
 csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
-batch_size = 1200
-all_log = True
+batch_size = 6
+all_log = False
 
 class PathProcessor:
     def __init__(self, file_path, od_pairs):
@@ -64,14 +64,20 @@ if __name__ == "__main__":
     processor = PathProcessor(csv_net_path, od_pairs)
     G = processor.build_graph(csv_net_path)
     path_results = processor.process_paths()
-    # if all_log:
-    #     print(path_results)
+    if all_log:
+      print(path_results)
 
     generator = ODGenerator(csv_od_path)
     data = generator.load()
     OD_results = generator.distribute_od_pairs(data, batch_size)
-    # if all_log:
-    #     print(OD_results)
+    random.shuffle(OD_results)
+    for ODs in OD_results:
+        random.shuffle(ODs)
+
+    print(OD_results)
+
+
+
 
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
@@ -164,7 +170,7 @@ if __name__ == "__main__":
             if all_log:
                 print(f"在循环i={i}时加入新OD")
             OD = OD_results[int(i / 10)]
-            charge_num = random.randint(120, 180)
+            charge_num = random.randint(int(batch_size * 0.1), int(batch_size * 0.15))
             charge_v = []
 
             # if i > 1 and i % T_pdn == 1:

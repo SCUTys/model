@@ -89,8 +89,8 @@ class DispatchCenter:
         for charge_station in self.charge_stations.values():
             total_charge_cost[f"EVCS {charge_station.id}"] = charge_station.cost / 10 / 1000
             charge_station.cost = 0
-        print(total_charge_cost)
-        print(222)
+        # print(total_charge_cost)
+        # print(222)
 
         #周期获取每个充电站该周期内到达车数（这里按功率直接分开）
         arrive_num = {}
@@ -772,26 +772,29 @@ class ChargeStation:
         #     m = self.t_cost[0] / self.t_cost[1]
         # else:
         #     m = 1
-        rou = l / m
-        rou_s = rou / s
-        p_0 = 0
-        for i in range(s):
-            p_0 += rou**i / math.factorial(i)
-        if rou_s == 1:
-            p_0 += (k - s + 1) * (rou**s) / math.factorial(s)
-        else:
-            p_0 += (rou**s) * (1 - rou_s**(k - s + 1))/ math.factorial(s) / (1 - rou_s)
-        p_0 = 1 / p_0
-        p_k = p_0 * (rou**k) / math.factorial(s) / (s ** (k - s))
-        l_e = l * (1 - p_k)
-        if rou_s == 1:
-            L_q = p_0 * (rou**s) * (k - s) * (k - s + 1) / 2 / math.factorial(s)
-        else:
-            L_q = p_0 * (rou**s) * rou_s * (1 - (rou_s**(k - s + 1)) - (1 - rou_s) * (k - s + 1) * (rou_s**(k - s)))
-        if l == 0 or l_e == 0:
+        if l == 0:
             return 0
         else:
-            return L_q / l_e
+            rou = l / m
+            rou_s = rou / s
+            p_0 = 0
+            for i in range(s):
+                p_0 += rou**i / math.factorial(i)
+            if rou_s == 1:
+                p_0 += (k - s + 1) * (rou**s) / math.factorial(s)
+            else:
+                p_0 += (rou**s) * (1 - rou_s**(k - s + 1))/ math.factorial(s) / (1 - rou_s)
+            p_0 = 1 / p_0
+            p_k = p_0 * (rou**k) / math.factorial(s) / (s ** (k - s))
+            l_e = l * (1 - p_k)
+            if rou_s == 1:
+                L_q = p_0 * (rou**s) * (k - s) * (k - s + 1) / 2 / math.factorial(s)
+            else:
+                L_q = p_0 * (rou**s) * rou_s * (1 - (rou_s**(k - s + 1)) - (1 - rou_s) * (k - s + 1) * (rou_s**(k - s)))
+            if l_e == 0:
+                return 0
+            else:
+                return L_q / l_e
 
 
     def check(self):
