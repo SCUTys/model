@@ -96,6 +96,7 @@ class DispatchCenter:
         arrive_num = {}
         for charge_station in self.charge_stations.values():
             for pile in charge_station.pile.keys():
+                print(charge_station.v_arrive[pile])
                 arrive_num[(charge_station.id, pile)] = charge_station.v_arrive[pile] / T
                 charge_station.v_arrive[pile] = 0
 
@@ -103,10 +104,12 @@ class DispatchCenter:
         charge_time = {}
         for charge_station in self.charge_stations.values():
             for pile in charge_station.pile.keys():
+                print("Calculating charge_time")
+                print(charge_station.t_cost[pile])
                 if charge_station.t_cost[pile][1] > 0:
                     charge_time[(charge_station.id, pile)] = charge_station.t_cost[pile][0] / charge_station.t_cost[pile][1]
                 else:
-                    charge_time[(charge_station.id, pile)] = 0.1 #待商榷
+                    charge_time[(charge_station.id, pile)] = 0 #待商榷
                 charge_station.t_cost[pile] = self.solve_tuple(charge_station.t_cost[pile],
                                                                 -charge_station.t_cost[pile][0], 0)
                 charge_station.t_cost[pile] = self.solve_tuple(charge_station.t_cost[pile],
@@ -137,8 +140,7 @@ class DispatchCenter:
 
         def calculate_cs_wait_time(cs_id, cs_power):
             charge_s = self.charge_stations[cs_id]
-            cs_time = charge_s.calculate_wait_cs(cs_power,
-                                                 charge_s.pile[cs_power],
+            cs_time = charge_s.calculate_wait_cs(charge_s.pile[cs_power],
                                                  charge_s.capacity * charge_s.pile[cs_power] / sum(charge_s.pile.values()),
                                                  arrive_num[cs_id, cs_power],
                                                  charge_time[cs_id, cs_power])
@@ -166,6 +168,7 @@ class DispatchCenter:
                 path_id_list = []
                 path_cost = []
                 min_cs_power = min(list(self.charge_stations[vehicle.destination].pile.keys()), key=lambda cs_power: calculate_cs_wait_time(vehicle.destination, cs_power))
+                print(f"vehicle id : {vehicle.id}, {calculate_cs_wait_time(vehicle.destination, min_cs_power)}")
                 for path in des_path_list:
                     p_path = calculate_path(path)
                     path_id_list.append(p_path)
@@ -728,6 +731,8 @@ class ChargeStation:
                 e_max = self.center.vehicles[v_id].Emax
                 v_t = (e_max - e) / p * 60
                 self.charge[p].append((v_id, v_t))
+                self.t_cost[p] = self.center.solve_tuple(self.t_cost[p], v_t, 0)
+                self.t_cost[p] = self.center.solve_tuple(self.t_cost[p], 1, 1)
                 self.queue[p].pop(0)
 
             if len(self.charge[p]) > 0:
@@ -764,7 +769,7 @@ class ChargeStation:
                     self.queue[p][index] = self.center.solve_tuple(tu, t)
 
 
-    def calculate_wait_cs(self, power, s, k, l, m):
+    def calculate_wait_cs(self, s, k, l, m):
         # s = self.pile[power]
         # k = self.capacity * self.pile[power]/ sum(self.pile.values())
         # l = self.v_arrive / T
@@ -772,7 +777,9 @@ class ChargeStation:
         #     m = self.t_cost[0] / self.t_cost[1]
         # else:
         #     m = 1
-        if l == 0:
+        print("Before calculate")
+        print(s, k, l, m)
+        if l == 0 or m == 0:
             return 0
         else:
             rou = l / m
@@ -786,11 +793,15 @@ class ChargeStation:
                 p_0 += (rou**s) * (1 - rou_s**(k - s + 1))/ math.factorial(s) / (1 - rou_s)
             p_0 = 1 / p_0
             p_k = p_0 * (rou**k) / math.factorial(s) / (s ** (k - s))
+            print("During calculate")
+            print(rou, k, rou**k, math.factorial(s), s, k - s)
             l_e = l * (1 - p_k)
             if rou_s == 1:
                 L_q = p_0 * (rou**s) * (k - s) * (k - s + 1) / 2 / math.factorial(s)
             else:
                 L_q = p_0 * (rou**s) * rou_s * (1 - (rou_s**(k - s + 1)) - (1 - rou_s) * (k - s + 1) * (rou_s**(k - s)))
+            print("After calculate")
+            print(p_0, p_k, l_e, L_q)
             if l_e == 0:
                 return 0
             else:

@@ -9,12 +9,12 @@ import PDNplus
 
 standard_speed = 60 #km/h
 t = 1 #min
-T = 5 #min
+T = 10 #min
 T_pdn = 3 * T  #min
 csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
-batch_size = 6
+batch_size = 1200
 all_log = False
 
 class PathProcessor:
@@ -73,8 +73,8 @@ if __name__ == "__main__":
     random.shuffle(OD_results)
     for ODs in OD_results:
         random.shuffle(ODs)
-
-    print(OD_results)
+    if all_log:
+        print(OD_results)
 
 
 
@@ -163,7 +163,7 @@ if __name__ == "__main__":
             if all_log:
                 print("初始化充电站")
             for j in TNplus.cs:
-                center.charge_stations[j] = TNplus.ChargeStation(j, center, {}, {50: [], 120: []}, {50: [], 120: []}, 200, {50: 100, 120: 100} ,
+                center.charge_stations[j] = TNplus.ChargeStation(j, center, {}, {50: [], 120: []}, {50: [], 120: []}, 250, {50: 100, 120: 100} ,
                                                                  {50: (0, 0), 120: (0, 0)}, {50: 0, 120: 0}, False)  #规范充电桩功率为kw
 
         if i % T == 1 or i == 1:
