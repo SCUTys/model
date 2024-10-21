@@ -26,13 +26,12 @@ def calculate_wait_cs(s, k, l, m):
         p_0 = 1 / p_0
         p_k = p_0 * (rou ** k) / math.factorial(s) / (s ** (k - s))
         print("During calculate")
-        print(rou, k, rou ** k, math.factorial(s), s, k - s)
+        print(rou, rou ** k, math.factorial(s), s, k - s)
         l_e = l * (1 - p_k)
         if rou_s == 1:
             L_q = p_0 * (rou ** s) * (k - s) * (k - s + 1) / 2 / math.factorial(s)
         else:
-            L_q = p_0 * (rou ** s) * rou_s * (
-                        1 - (rou_s ** (k - s + 1)) - (1 - rou_s) * (k - s + 1) * (rou_s ** (k - s)))
+            L_q = p_0 * (rou**s) * rou_s * (1 - (rou_s**(k - s + 1)) - (1 - rou_s) * (k - s + 1) * (rou_s**(k - s))) / math.factorial(s) / (1 - rou_s)**2
         print("After calculate")
         print(p_0, p_k, l_e, L_q)
         if l_e == 0:
