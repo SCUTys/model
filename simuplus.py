@@ -14,7 +14,7 @@ T_pdn = 3 * T  #min
 csv_net_path = 'data/SF/SiouxFalls_net.csv'
 csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
-batch_size = 1200
+batch_size = 1500
 all_log = False
 
 class PathProcessor:

@@ -6,6 +6,7 @@ t = 1 #min
 T = 10 #min
 k = 1
 cs = [1, 5, 11, 15, 20]
+output_for_demo = True
 
 
 class DispatchCenter:
@@ -104,8 +105,9 @@ class DispatchCenter:
         charge_time = {}
         for charge_station in self.charge_stations.values():
             for pile in charge_station.pile.keys():
-                print("Calculating charge_time")
-                print(charge_station.t_cost[pile])
+                if self.log:
+                    print("Calculating charge_time")
+                    print(charge_station.t_cost[pile])
                 if charge_station.t_cost[pile][1] > 0 and charge_station.t_cost[pile][0] > 0:
                     charge_time[(charge_station.id, pile)] = charge_station.t_cost[pile][0] / charge_station.t_cost[pile][1]
                 else:
@@ -171,7 +173,7 @@ class DispatchCenter:
                 path_id_list = []
                 path_cost = []
                 min_cs_power = min(list(self.charge_stations[vehicle.destination].pile.keys()), key=lambda cs_power: calculate_cs_wait_time(vehicle.destination, cs_power))
-                print(f"vehicle id : {vehicle.id}, {calculate_cs_wait_time(vehicle.destination, min_cs_power)}")
+                # print(f"vehicle id : {vehicle.id}, {calculate_cs_wait_time(vehicle.destination, min_cs_power)}")
                 for path in des_path_list:
                     p_path = calculate_path(path)
                     path_id_list.append(p_path)
@@ -277,13 +279,24 @@ class DispatchCenter:
                 update_flow(vehicle, vehicle.path)
                 vehicle.drive()
 
-        #执行主程序
+        #执行主程序(加入demo生成)
+        if output_for_demo:
+            print("demo测试")
+            for edge in self.edges.values():
+                print(f"edge {edge.id} capacity: {edge.capacity}")
+
         for v in charging_vehicles:
             vehicle = self.vehicles[v]
             if self.log:
                 print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
             assign_cs(vehicle)
             vehicle_process(vehicle)
+
+        if output_for_demo:
+            for v in charging_vehicles:
+                vehicle = self.vehicles[v]
+                print(f"车辆 {vehicle.id} , 起点{vehicle.origin}, 充电站{vehicle.charge[0]}, 终点{vehicle.destination}")
+                print(f"车辆 {vehicle.id} 新路径{vehicle.path}")
 
 
         #备用版本（也就是老版本，可以对照检测下有无出错）
@@ -807,7 +820,6 @@ class ChargeStation:
                 print("k < s")
                 return p_0 * (rou ** k) / math.factorial(k)
             else:
-                # 使用对数计算避免溢出
                 log_p_k = (math.log(p_0)
                            + k * math.log(rou)
                            - math.log(math.factorial(s))
@@ -820,7 +832,6 @@ class ChargeStation:
                     2) - math.log(math.factorial(s))
                 L_q = math.exp(log_L_q)
             else:
-                # 使用对数计算避免溢出
                 log_part1 = math.log(p_0) + s * math.log(rou) + math.log(rou_s)
                 log_part2_1 = (k - s + 1) * math.log(rou_s) + math.log(k - s)
                 log_part2_2 = (k - s) * math.log(rou_s) + math.log(k - s + 1)
@@ -832,9 +843,9 @@ class ChargeStation:
 
             return L_q
 
-        print("Before calculate")
-        print("s, k, l, m: ", end='')
-        print(s, k, l, m)
+        # print("Before calculate")
+        # print("s, k, l, m: ", end='')
+        # print(s, k, l, m)
         if l == 0 or m == 0:
             return 0
         else:
@@ -847,13 +858,13 @@ class ChargeStation:
             # print(rou, rou ** k, math.factorial(s), s, k - s)
             l_e = l * (1 - p_k)
             L_q = calculate_L_q(p_0, rou, s, k, rou_s)
-            print("After calculate")
-            print("p_0, p_k, L_q, l_e: ", end='')
-            print(p_0, p_k, L_q, l_e)
+            # print("After calculate")
+            # print("p_0, p_k, L_q, l_e: ", end='')
+            # print(p_0, p_k, L_q, l_e)
             if l_e == 0:
                 return 0
             else:
-                print(L_q / l_e)
+                # print(L_q / l_e)
                 return L_q / l_e
 
 
