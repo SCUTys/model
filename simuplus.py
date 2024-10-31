@@ -4,7 +4,7 @@ from pathlib import Path
 import TNplus
 import loaddata as ld
 import random
-import PDNplus
+# import PDNplus
 
 
 standard_speed = 60 #km/h
@@ -73,8 +73,8 @@ if __name__ == "__main__":
     random.shuffle(OD_results)
     for ODs in OD_results:
         random.shuffle(ODs)
-    if all_log:
-        print(OD_results)
+
+    print(OD_results)
 
 
 
@@ -142,9 +142,9 @@ if __name__ == "__main__":
 
 
     v_index = 0
-    pdn = PDNplus.create_ieee14()
-    pdn_result = []
-    for i in range(1, 272):
+    # pdn = PDNplus.create_ieee14()
+    # pdn_result = []
+    for i in range(1, 241):
         # if all_log:
         #     print(f"主循环 {i}")
         for vehicle in center.vehicles:
@@ -170,7 +170,7 @@ if __name__ == "__main__":
             if all_log:
                 print(f"在循环i={i}时加入新OD")
             OD = OD_results[int(i / 10)]
-            charge_num = random.randint(int(batch_size * 0.1), int(batch_size * 0.15))
+            charge_num = int(batch_size * 0.15)
             charge_v = []
 
             # if i > 1 and i % T_pdn == 1:
@@ -189,7 +189,7 @@ if __name__ == "__main__":
             for (O,D) in OD:
                 choice = path_results[(O, D)][0]
                 if len(choice) > 1:
-                    path = choice[random.randint(1, len(choice)) - 1]
+                    path = choice[i % len(choice)]
                     true_path = []
                     for j in range(0, len(path) - 1):
                         for edge in center.edges.values():

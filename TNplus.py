@@ -5,7 +5,7 @@ import math
 t = 1 #min
 T = 10 #min
 k = 1
-cs = [1, 5, 11, 15, 20]
+cs = [1, 5, 11, 13, 15, 20]
 output_for_demo = True
 
 
@@ -76,7 +76,7 @@ class DispatchCenter:
         return sum_road
 
 
-    def dispatch(self, charging_vehicles, path_results, current_time):
+    def dispatch(self, charging_vehicles, path_results, current_time, for_demo = False):
         """
         根据某种方式调度要充电的车，这里由于没接算法写了个随机数
         :param charging_vehicles:需要调度的车辆id集合
@@ -163,49 +163,53 @@ class DispatchCenter:
 
         #算法优化调度（这里还是写个随机数）
         def assign_cs(vehicle):
-            if vehicle.origin in cs: #若起点可充电，直接在起点充电
-                charge_id = vehicle.origin
-                vehicle.charge = (vehicle.origin, list(self.charge_stations[vehicle.origin].pile.keys())
-                [random.randint(0, len(list(self.charge_stations[vehicle.origin].pile.keys())) - 1)])
-            elif vehicle.destination in cs: #若终点可充电，判断是否能到达终点，可以就分配至终点
-                des_path_list = path_results[(vehicle.origin, vehicle.destination)][0]
-                # print(f"起点{vehicle.origin}, 终点{vehicle.destination}")
-                path_id_list = []
-                path_cost = []
-                min_cs_power = min(list(self.charge_stations[vehicle.destination].pile.keys()), key=lambda cs_power: calculate_cs_wait_time(vehicle.destination, cs_power))
-                # print(f"vehicle id : {vehicle.id}, {calculate_cs_wait_time(vehicle.destination, min_cs_power)}")
-                for path in des_path_list:
-                    p_path = calculate_path(path)
-                    path_id_list.append(p_path)
-                    path_cost.append(calculate_TN_time_and_energy(p_path, 0))
-                sorted_path = sort(path_id_list, path_cost)
-                if vehicle.E >= calculate_cs_wait_time(vehicle.destination, min_cs_power) * vehicle.Ewait + calculate_TN_time_and_energy(sorted_path[0], 0):
-                    charge_id = vehicle.destination
-                    vehicle.charge = (vehicle.destination, min_cs_power)
-                    vehicle.path = sorted_path[0]
-                    vehicle.road = vehicle.path[0]
-                    if len(vehicle.path) > 1:
-                        vehicle.next_road = vehicle.path[1]
+            if for_demo:
+                print("直接使用输入的调度结果")
+
+            else:
+                if vehicle.origin in cs: #若起点可充电，直接在起点充电
+                    charge_id = vehicle.origin
+                    vehicle.charge = (vehicle.origin, list(self.charge_stations[vehicle.origin].pile.keys())
+                    [random.randint(0, len(list(self.charge_stations[vehicle.origin].pile.keys())) - 1)])
+                elif vehicle.destination in cs: #若终点可充电，判断是否能到达终点，可以就分配至终点
+                    des_path_list = path_results[(vehicle.origin, vehicle.destination)][0]
+                    # print(f"起点{vehicle.origin}, 终点{vehicle.destination}")
+                    path_id_list = []
+                    path_cost = []
+                    min_cs_power = min(list(self.charge_stations[vehicle.destination].pile.keys()), key=lambda cs_power: calculate_cs_wait_time(vehicle.destination, cs_power))
+                    # print(f"vehicle id : {vehicle.id}, {calculate_cs_wait_time(vehicle.destination, min_cs_power)}")
+                    for path in des_path_list:
+                        p_path = calculate_path(path)
+                        path_id_list.append(p_path)
+                        path_cost.append(calculate_TN_time_and_energy(p_path, 0))
+                    sorted_path = sort(path_id_list, path_cost)
+                    if vehicle.E >= calculate_cs_wait_time(vehicle.destination, min_cs_power) * vehicle.Ewait + calculate_TN_time_and_energy(sorted_path[0], 0):
+                        charge_id = vehicle.destination
+                        vehicle.charge = (vehicle.destination, min_cs_power)
+                        vehicle.path = sorted_path[0]
+                        vehicle.road = vehicle.path[0]
+                        if len(vehicle.path) > 1:
+                            vehicle.next_road = vehicle.path[1]
+                        else:
+                            vehicle.next_road = -1
                     else:
-                        vehicle.next_road = -1
+                        adjusted_prob = [p if cs[i] != vehicle.destination else 0 for i, p in enumerate(cs_prob)]
+                        total_prob = sum(adjusted_prob)
+                        normalized_prob = [p / total_prob for p in adjusted_prob]
+                        charge_id = random.choices(cs, normalized_prob)[0]
+                        vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
+                        [random.randint(0, len(list(self.charge_stations[charge_id].pile.keys())) - 1)])
+
+                    # charge_id = vehicle.destination
+                    # vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
+                    #     [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys())) - 1)])
                 else:
-                    adjusted_prob = [p if cs[i] != vehicle.destination else 0 for i, p in enumerate(cs_prob)]
-                    total_prob = sum(adjusted_prob)
-                    normalized_prob = [p / total_prob for p in adjusted_prob]
-                    charge_id = random.choices(cs, normalized_prob)[0]
+                    charge_id = random.choices(cs, cs_prob)[0]
                     vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
                     [random.randint(0, len(list(self.charge_stations[charge_id].pile.keys())) - 1)])
 
-                # charge_id = vehicle.destination
-                # vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
-                #     [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys())) - 1)])
-            else:
-                charge_id = random.choices(cs, cs_prob)[0]
-                vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
-                [random.randint(0, len(list(self.charge_stations[charge_id].pile.keys())) - 1)])
-
-            if self.log:
-                print(f"车辆 {vehicle.id} 分配到充电站{charge_id}, 充电功率为{vehicle.charge[1]}")
+                if self.log:
+                    print(f"车辆 {vehicle.id} 分配到充电站{charge_id}, 充电功率为{vehicle.charge[1]}")
 
         def calculate_path(path):
             return [edge.id for i in range(len(path) - 1) for edge in self.edges.values() if
@@ -262,9 +266,7 @@ class DispatchCenter:
             if self.log:
                 print(f"车辆{vehicle.id} 在 {current_time}影响交通流")
             self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
-            if vehicle.next_road != -1:
-                self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(
-                    self.edges[vehicle.road].capacity[vehicle.next_road], 1)
+            self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
             if self.log:
                 print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
 
@@ -382,7 +384,7 @@ class DispatchCenter:
 
 
 class Vehicle:
-    def __init__(self, id, center, origin, destination, distance, road, next_road, path, Emax, E, Ewait, Edrive, iswait, charge, index=0, charging = False, log = False):
+    def __init__(self, id, center, origin, destination, distance, road, next_road, path, Emax, E, Ewait, Edrive, iswait, charge, index=0, log = False, charging = False):
         """
         存储车辆信息
         :param id: 车辆id
@@ -429,40 +431,43 @@ class Vehicle:
         :param rate: 时间比率，用于缓解误差
         :return:
         """
-        road = self.center.edges[self.road]
-        # print(road.id)
-        if rate > 0 and rate < 1:
-            drive_distance = road.calculate_drive() * rate
-        else:
-            drive_distance = road.calculate_drive()
-        if drive_distance < self.distance:
-            self.distance -= drive_distance
-            self.E -= drive_distance * self.Edrive
-            if self.log:
-                print(f"车辆 {self.id} 行驶了 {drive_distance} ")
+        if self.road != -1:
+            road = self.center.edges[self.road]
+            # print(road.id)
+            if rate > 0 and rate < 1:
+                drive_distance = road.calculate_drive() * rate
+            else:
+                drive_distance = road.calculate_drive()
+            if drive_distance < self.distance:
+                self.distance -= drive_distance
+                self.E -= drive_distance * self.Edrive
+                if self.log:
+                    print(f"车辆 {self.id} 行驶了 {drive_distance} ")
 
-        else:
-            self.E -= self.distance * self.Edrive
-            r = self.distance / drive_distance
-            self.distance = 0
+            else:
+                self.E -= self.distance * self.Edrive
+                r = self.distance / drive_distance
+                self.distance = 0
 
-            if self.check_destination():
-                if len(self.charge) > 0:
-                    if self.destination == self.charge[0]:
-                        self.enter_charge()
-                else:
-                    if self.log:
-                        print(f'车辆 {self.id} 已到达终点{self.destination},不再行驶')
-                    road = self.center.edges[self.road]
-                    road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
-                    road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], -1)
-                    if self.log:
-                        print(f'在车辆 {self.id} destination中道路{self.road}总流量-1')
-                    self.road = -1
-            elif self.check_charge():
-                self.enter_charge()
-            elif not self.check_charge() and self.next_road != -1:
-                self.wait(self.road, self.next_road, 1 - r)
+                if self.check_destination():
+                    if len(self.charge) > 0:
+                        if self.destination == self.charge[0]:
+                            self.enter_charge()
+                    else:
+                        if self.log:
+                            print(f'车辆 {self.id} 已到达终点{self.destination},不再行驶')
+                        road = self.center.edges[self.road]
+                        road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
+                        road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], -1)
+                        if self.log:
+                            print(f'在车辆 {self.id} destination中道路{self.road}流量-1')
+                        self.road = -1
+                elif self.check_charge():
+                    self.enter_charge()
+                elif not self.check_charge() and self.next_road != -1:
+                    self.wait(self.road, self.next_road, 1 - r)
+        else:
+            print("车辆已到达终点, 不再驾驶")
 
 
 
@@ -524,7 +529,7 @@ class Vehicle:
                 road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], -1)
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
                 if self.log:
-                    print(f'在车辆 {self.id} change_road中道路{self.road}总流量-1')
+                    print(f'在车辆 {self.id} change_road中道路{self.road}流量-1')
 
             self.road = self.next_road
 
@@ -614,6 +619,7 @@ class Vehicle:
             if self.log:
                 print(f'车辆{self.id}已到达终点{self.destination},不再行驶')
             self.road = -1
+            self.charge = {}
 
 
 
