@@ -16,6 +16,7 @@ csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
 batch_size = 1500
 all_log = False
+dispatch_list = {}
 
 class PathProcessor:
     def __init__(self, file_path, od_pairs):
@@ -256,6 +257,8 @@ if __name__ == "__main__":
 
         # print(f'for {i}: {center.calculate_lost()}')
 
+    print("dispatch list")
+    print(TNplus.dispatch_list)
     if all_log:
         v = []
         for vehicle in center.vehicles:

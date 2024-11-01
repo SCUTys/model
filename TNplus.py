@@ -1,12 +1,17 @@
 import random
 import numpy as np
 import math
+import os
+import csv
+
 
 t = 1 #min
 T = 10 #min
 k = 1
 cs = [1, 5, 11, 13, 15, 20]
 output_for_demo = True
+dispatch_list = {}
+use_csv_input = False
 
 
 class DispatchCenter:
@@ -76,7 +81,7 @@ class DispatchCenter:
         return sum_road
 
 
-    def dispatch(self, charging_vehicles, path_results, current_time, for_demo = False):
+    def dispatch(self, charging_vehicles, path_results, current_time):
         """
         根据某种方式调度要充电的车，这里由于没接算法写了个随机数
         :param charging_vehicles:需要调度的车辆id集合
@@ -159,12 +164,55 @@ class DispatchCenter:
             sorted_var = list(sorted_var)
             return sorted_var
 
+        def get_vehicles_on_roads(self):
+            """
+            Returns a dictionary with road IDs as keys and a collection of vehicle information as values.
+            Vehicle information includes id, distance, iswait, and next_road.
+            """
+            road_vehicles = {}
+            for demo_v in self.vehicles:
+                if demo_v.road != -1:
+                    v_info = {
+                        'id': demo_v.id,
+                        'distance': demo_v.distance,
+                        'iswait': demo_v.is_wait,
+                        'next_road': demo_v.next_road
+                    }
+                    if demo_v.road not in road_vehicles:
+                        road_vehicles[demo_v.road] = []
+                    road_vehicles[demo_v.road].append(v_info)
+            return road_vehicles
+
 
 
         #算法优化调度（这里还是写个随机数）
         def assign_cs(vehicle):
-            if for_demo:
+            if use_csv_input:
                 print("直接使用输入的调度结果")
+                with open('vehicle_info.csv', mode='r', newline='') as file:
+                    reader = csv.DictReader(file)
+                    for row in reader:
+                        if int(row['id']) == vehicle.id:
+                            vehicle.charge = (row['cs'], row['power'])
+                            vehicle.path = row['path']
+                            vehicle.distance = self.edges[vehicle.path[0]].length
+                            vehicle.road = vehicle.path[0]
+                            if len(vehicle.path) > 1:
+                                vehicle.next_road = vehicle.path[1]
+                            else:
+                                vehicle.next_road = -1
+                            break
+
+                    time = sum(self.edges[i].calculate_drive() for i in vehicle.path)
+                    self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = current_time + time
+                    if self.log:
+                        print(f"车辆{vehicle.id} 在 {current_time}影响交通流")
+                    self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
+                    self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(
+                        self.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                    if self.log:
+                        print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
+                    vehicle.drive()
 
             else:
                 if vehicle.origin in cs: #若起点可充电，直接在起点充电
@@ -246,14 +294,6 @@ class DispatchCenter:
             else:
                 path2 = sorted_path2[0]
 
-            # path1 = random.choice(path_results[(vehicle.origin, vehicle.charge[0])][0])
-            # path2 = random.choice(path_results[(vehicle.charge[0], vehicle.destination)][0])
-            # print(1919810)
-            # print(vehicle.id)
-            # print(vehicle.origin)
-            # print(vehicle.destination)
-            # print(path1)
-            # print(path2)
             vehicle.path = path1 + path2
             vehicle.road = vehicle.path[0]
             vehicle.next_road = vehicle.path[1]
@@ -284,6 +324,7 @@ class DispatchCenter:
         #执行主程序(加入demo生成)
         if output_for_demo:
             print("demo测试")
+            print(get_vehicles_on_roads(self))
             for edge in self.edges.values():
                 print(f"edge {edge.id} capacity: {edge.capacity}")
 
@@ -293,12 +334,28 @@ class DispatchCenter:
                 print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
             assign_cs(vehicle)
             vehicle_process(vehicle)
+            if output_for_demo:
+                info = {
+                            'id': vehicle.id,
+                            'origin': vehicle.origin,
+                            'cs': vehicle.charge[0],
+                            'power': vehicle.charge[1],
+                            'destination': vehicle.destination,
+                            'path': vehicle.path
+                        }
+                # Specify the CSV file name
+                csv_file = 'vehicle_info.csv'
 
-        if output_for_demo:
-            for v in charging_vehicles:
-                vehicle = self.vehicles[v]
-                print(f"车辆 {vehicle.id} , 起点{vehicle.origin}, 充电站{vehicle.charge[0]}, 终点{vehicle.destination}")
-                print(f"车辆 {vehicle.id} 新路径{vehicle.path}")
+                # Check if the file exists and is not empty
+                file_exists = os.path.isfile(csv_file) and os.path.getsize(csv_file) > 0
+
+                # Write the dictionary to the CSV file
+                with open(csv_file, mode='a', newline='') as file:
+                    writer = csv.DictWriter(file, fieldnames=info.keys())
+                    if not file_exists:
+                        writer.writeheader()
+                    writer.writerow(info)
+
 
 
         #备用版本（也就是老版本，可以对照检测下有无出错）
