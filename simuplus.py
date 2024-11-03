@@ -5,6 +5,7 @@ import TNplus
 import loaddata as ld
 import random
 import csv
+import ast
 import json
 # import PDNplus
 
@@ -18,6 +19,7 @@ csv_od_path = 'data/SF/SiouxFalls_od.csv'
 num_nodes = 24
 batch_size = 1500
 all_log = False
+OD_from_csv = False
 dispatch_list = {}
 
 class PathProcessor:
@@ -78,12 +80,19 @@ if __name__ == "__main__":
         random.shuffle(ODs)
 
     # Specify the file name
-    file_name = 'OD_output.csv'
-
-    with open(file_name, 'w', newline='') as file:
-        writer = csv.writer(file)
-        for sublist in OD_results:
-            writer.writerow(sublist)
+    file_path = 'OD_output.csv'
+    if OD_from_csv:
+        OD_results = []
+        with open(file_path, newline='') as csvfile:
+            csvreader = csv.reader(csvfile)
+            for row in csvreader:
+                row_data = [ast.literal_eval(cell) for cell in row]
+                OD_results.append(row_data)
+    else:
+        with open(file_path, 'w', newline='') as file:
+            writer = csv.writer(file)
+            for sublist in OD_results:
+                writer.writerow(sublist)
 
 
 

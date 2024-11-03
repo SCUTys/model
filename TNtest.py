@@ -1,5 +1,6 @@
 import math
-
+import csv
+import ast
 
 def calculate_wait_cs(s, k, l, m):
     # s = self.pile[power]
@@ -87,30 +88,45 @@ def calculate_wait_cs(s, k, l, m):
             print(L_q / l_e)
             return L_q / l_e
 
-print("result testing1")
-calculate_wait_cs(2, 5, 2, 0.5)
-print('\n')
-print("result testing2")
-calculate_wait_cs(20, 50, 20, 0.5)
-print('\n')
-print("result testing3")
-calculate_wait_cs(100, 125.0, 20.0, 1 / 13.553238105736334)
-print('\n')
-print("result testing4")
-calculate_wait_cs(100, 125.0, 40.0, 1 / 13.553238105736334)
-print('\n')
-print("result testing5")
-calculate_wait_cs(100, 125.0, 2.0, 1 / 13.553238105736334)
-print('\n')
-print("result testing6")
-calculate_wait_cs(100, 125.0, 4.0, 1 / 13.553238105736334)
-print('\n')
-print("result testing7")
-calculate_wait_cs(100, 125.0, 100.0, 1 / 13.553238105736334)
-print('\n')
-print("result testing8")
-calculate_wait_cs(100, 125.0, 120.0, 1 / 13.553238105736334)
-print('\n')
-print("result testing9")
-calculate_wait_cs(100, 125.0, 1.4, 0.050242593025730656)
-print('\n')
+
+def read_csv_to_list(file_path):
+    all_data = []
+    with open(file_path, newline='') as csvfile:
+        csvreader = csv.reader(csvfile)
+        for row in csvreader:
+            row_data = [ast.literal_eval(cell) for cell in row]
+            all_data.append(row_data)
+    return all_data
+
+
+file_name = 'OD_output.csv'
+data = read_csv_to_list(file_name)
+print(data)
+
+# print("result testing1")
+# calculate_wait_cs(2, 5, 2, 0.5)
+# print('\n')
+# print("result testing2")
+# calculate_wait_cs(20, 50, 20, 0.5)
+# print('\n')
+# print("result testing3")
+# calculate_wait_cs(100, 125.0, 20.0, 1 / 13.553238105736334)
+# print('\n')
+# print("result testing4")
+# calculate_wait_cs(100, 125.0, 40.0, 1 / 13.553238105736334)
+# print('\n')
+# print("result testing5")
+# calculate_wait_cs(100, 125.0, 2.0, 1 / 13.553238105736334)
+# print('\n')
+# print("result testing6")
+# calculate_wait_cs(100, 125.0, 4.0, 1 / 13.553238105736334)
+# print('\n')
+# print("result testing7")
+# calculate_wait_cs(100, 125.0, 100.0, 1 / 13.553238105736334)
+# print('\n')
+# print("result testing8")
+# calculate_wait_cs(100, 125.0, 120.0, 1 / 13.553238105736334)
+# print('\n')
+# print("result testing9")
+# calculate_wait_cs(100, 125.0, 1.4, 0.050242593025730656)
+# print('\n')
