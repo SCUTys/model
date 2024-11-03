@@ -65,20 +65,19 @@ def main(file_path, od_pairs):
 
 
 def distribute_od_pairs(data_dict, elements_per_category=100):
-    # 计算总个数和组数
+    # Calculate total count and number of groups
     total_count = sum(data_dict.values())
-    #print(total_count)
-    group_count = total_count // elements_per_category #+ (1 if total_count % elements_per_category else 0)
+    group_count = (total_count + elements_per_category - 1) // elements_per_category  # Round up
 
-    # 初始化组
+    # Initialize groups
     groups = [[] for _ in range(group_count)]
     od_used = [set() for _ in range(group_count)]
 
-    # 打乱 OD 对的顺序
+    # Shuffle OD pairs
     od_pairs = list(data_dict.items())
     random.shuffle(od_pairs)
 
-    # 分配OD对
+    # Distribute OD pairs
     for (od, count) in od_pairs:
         while count > 0:
             placed = False
@@ -91,10 +90,10 @@ def distribute_od_pairs(data_dict, elements_per_category=100):
                     if count == 0:
                         break
 
-            # 如果没有成功放置，随机选择一个组放置
+            # If not placed, randomly select a group to place
             if not placed:
                 attempts = 0
-                while attempts < 10:  # 尝试最多10次随机选择
+                while attempts < 10:  # Try up to 10 times
                     random_group = random.choice(range(group_count))
                     if len(groups[random_group]) < elements_per_category:
                         groups[random_group].append(od)
@@ -103,9 +102,9 @@ def distribute_od_pairs(data_dict, elements_per_category=100):
                         break
                     attempts += 1
 
-                # 如果10次都未成功，从最后一个组开始依次尝试
+                # If 10 attempts fail, try sequentially
                 if attempts >= 10:
-                    for offset in range(1, group_count + 1):  # 尝试所有组
+                    for offset in range(1, group_count + 1):
                         random_group = (group_count - offset) % group_count
                         if len(groups[random_group]) < elements_per_category:
                             groups[random_group].append(od)
@@ -113,14 +112,27 @@ def distribute_od_pairs(data_dict, elements_per_category=100):
                             count -= 1
                             break
 
-                    # 如果所有组都满了，随机填充后五个有效组
+                    # If all groups are full, add remaining elements to the last group
                     if count > 0:
                         for i in range(group_count):
                             if len(groups[i]) < elements_per_category:
-                                groups[i].extend([od] * count)  # 将剩余元素一次性加入
+                                groups[i].extend([od] * count)
                                 od_used[i].add(od)
                                 count = 0
                                 break
+
+    # Balance the number of elements in each sublist
+    while True:
+        max_len = max(len(group) for group in groups)
+        min_len = min(len(group) for group in groups)
+        if max_len - min_len <= 1:
+            break
+        for group in groups:
+            if len(group) == max_len:
+                for target_group in groups:
+                    if len(target_group) == min_len:
+                        target_group.append(group.pop())
+                        break
 
     return groups
 

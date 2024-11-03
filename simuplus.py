@@ -4,6 +4,8 @@ from pathlib import Path
 import TNplus
 import loaddata as ld
 import random
+import csv
+import json
 # import PDNplus
 
 
@@ -75,7 +77,13 @@ if __name__ == "__main__":
     for ODs in OD_results:
         random.shuffle(ODs)
 
-    print(OD_results)
+    # Specify the file name
+    file_name = 'OD_output.csv'
+
+    with open(file_name, 'w', newline='') as file:
+        writer = csv.writer(file)
+        for sublist in OD_results:
+            writer.writerow(sublist)
 
 
 

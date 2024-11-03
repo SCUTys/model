@@ -3,6 +3,7 @@ import numpy as np
 import math
 import os
 import csv
+import ast
 
 
 t = 1 #min
@@ -194,7 +195,7 @@ class DispatchCenter:
                     for row in reader:
                         if int(row['id']) == vehicle.id:
                             vehicle.charge = (row['cs'], row['power'])
-                            vehicle.path = row['path']
+                            vehicle.path = ast.literal_eval(row['path'])
                             vehicle.distance = self.edges[vehicle.path[0]].length
                             vehicle.road = vehicle.path[0]
                             if len(vehicle.path) > 1:
@@ -333,7 +334,8 @@ class DispatchCenter:
             if self.log:
                 print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
             assign_cs(vehicle)
-            vehicle_process(vehicle)
+            if not use_csv_input:
+                vehicle_process(vehicle)
             if output_for_demo:
                 info = {
                             'id': vehicle.id,
@@ -344,7 +346,7 @@ class DispatchCenter:
                             'path': vehicle.path
                         }
                 # Specify the CSV file name
-                csv_file = 'vehicle_info.csv'
+                csv_file = 'vehicle_info1.csv'
 
                 # Check if the file exists and is not empty
                 file_exists = os.path.isfile(csv_file) and os.path.getsize(csv_file) > 0
