@@ -9,7 +9,9 @@ import ast
 t = 1 #min
 T = 10 #min
 k = 1
-cs = [1, 5, 11, 13, 15, 20]
+cs_SF = [1, 5, 11, 13, 15, 20]
+cs_EMA = [6, 10, 11, 17, 19, 22, 23, 25, 27, 29, 30, 33, 34, 38, 40, 42, 44, 47, 48, 49, 52, 57, 60, 63, 65, 69]
+cs = cs_SF
 output_for_demo = True
 dispatch_list = {}
 use_csv_input = False

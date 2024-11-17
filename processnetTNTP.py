@@ -3,8 +3,8 @@ import pandas as pd
 from pathlib import Path
 
 # 设置文件路径
-root = Path(os.path.abspath('.')).parent / "pythonProject" / "data"
-netfile = root / 'AT' /'Austin_net.tntp'
+root = Path(os.path.abspath('.')).parent / "model" / "data"
+netfile = root / 'EMA' /'EMA_net.tntp'
 
 # netfile = r"D:\PyCharm 2024\PycharmProject\pythonProject\data\SF\SiouxFalls_net.tntp"
 # 读取文件

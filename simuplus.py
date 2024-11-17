@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from pandapower.networks import create_synthetic_voltage_control_lv_network
 import TNplus
 import loaddata as ld
 import random
@@ -14,9 +15,11 @@ standard_speed = 60 #km/h
 t = 1 #min
 T = 10 #min
 T_pdn = 3 * T  #min
-csv_net_path = 'data/SF/SiouxFalls_net.csv'
-csv_od_path = 'data/SF/SiouxFalls_od.csv'
-num_nodes = 24
+roadmap = 'EMA' #目前支持SF和EMA
+csv_net_path = 'data/' + roadmap + '/' + roadmap + '_net.csv'
+csv_od_path = 'data/' + roadmap + '/' + roadmap + '_od.csv'
+node = {'SF': 24, 'EMA': 76}
+num_nodes = node[roadmap]
 batch_size = 1500
 all_log = False
 OD_from_csv = False

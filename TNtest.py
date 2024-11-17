@@ -1,6 +1,8 @@
 import math
 import csv
 import ast
+import pandas as pd
+import numpy as np
 
 def calculate_wait_cs(s, k, l, m):
     # s = self.pile[power]
@@ -99,9 +101,50 @@ def read_csv_to_list(file_path):
     return all_data
 
 
-file_name = 'OD_output.csv'
-data = read_csv_to_list(file_name)
-print(data)
+def generate_od():
+    # Initialize lists to store the data
+    origins = []
+    destinations = []
+    flows = []
+
+    # Read the file
+    with open('data/EMA/EMA_trips.tntp', 'r') as file:
+        lines = file.readlines()
+
+    # Parse the file
+    current_origin = None
+    for line in lines:
+        line = line.strip()
+        if line.startswith('Origin'):
+            current_origin = int(line.split()[1])
+        elif ':' in line:
+            parts = line.split(';')
+            for part in parts:
+                if ':' in part:
+                    destination, flow = part.split(':')
+                    destination = int(destination.strip())
+                    flow = float(flow.strip())
+                    origins.append(current_origin)
+                    destinations.append(destination)
+                    # if flow == 0 : flow = 1
+                    flows.append(np.ceil(flow))
+
+    # Create a DataFrame
+    df = pd.DataFrame({
+        'O': origins,
+        'D': destinations,
+        'Ton': flows
+    })
+
+    # Save to CSV
+    df.to_csv('data/EMA/EMA_od.csv', index=False)
+
+
+generate_od()
+
+# file_name = 'OD_output.csv'
+# data = read_csv_to_list(file_name)
+# print(data)
 
 # print("result testing1")
 # calculate_wait_cs(2, 5, 2, 0.5)
