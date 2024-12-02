@@ -7,6 +7,13 @@ import ast
 
 import simuplus
 from simuplus import get_graph
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.algorithms.moo.spea2 import SPEA2
+from pymoo.operators.sampling.rnd import IntegerRandomSampling
+from pymoo.operators.crossover.sbx import SBX
+from pymoo.operators.mutation.pm import PM
+from pymoo.termination.default import DefaultTermination
+from pymoo.optimize import minimize
 from pymoo.core.problem import Problem
 
 
@@ -31,30 +38,43 @@ class ChargingStationProblem(Problem):
     def __init__(self, center, charge_vehicles, path_capacity, path_results, cs, eps = 0, path_detail=None):
         super().__init__(n_var=len(cs) * len(charge_vehicles), n_obj=2, n_constr=1, xl=0, xu=1, type_var=np.int)
         self.center = center
-        self.charge_vehicles = charge_vehicles #需充电车辆集合
+        self.charge_vehicles = charge_vehicles #需充电车辆id集合
         self.path_capacity = path_capacity #每条道路容量和实际流量
         self.path_results = path_results
         self.cs = cs
-        self.G = simuplus.get_graph()
-        if path_detail is None:
-            self.path_detail = path_detail
-        else:
-            self.path_detail = {}
+        self.eps = eps
+        self.Graph = simuplus.get_graph()
+        self.path_detail = path_detail if path_detail is not None else {}
+        self.vehicle_start_end = {
+            vehicle_id: (center.vehicles[vehicle_id].origin, center.vehicles[vehicle_id].destination) for vehicle_id in
+            charge_vehicles}
 
     def _evaluate(self, x, out, *args, **kwargs): ##这里的x希望能传[[vehicle_id, path, cs_id, power]]
         cost_result = {}
+        charge_cnt = {}
+        dispatch_cnt = {}
+        alpha = 0.75
         for [vehicle_id, path, cs_id, power] in x:
             cost_result[vehicle_id] = self.calculate_cost(vehicle_id, path, cs_id, power)
+            charge_cnt[(cs_id, power)] = charge_cnt.get((cs_id, power), 0) + 1
 
-        f1 = np.sum(x)  # Objective 1: Minimize the number of charging stations used
-        f2 = np.sum([self.calculate_cost(i, j) for i, j in zip(x[:-1], x[1:])])  # Objective 2: Minimize the total cost
+        f1 = self.center.calculate_lost()
+        f2 = sum([alpha * (cost[0] + cost[1] + cost[2] + cost[3]) + (1 - alpha) * cost[4] for cost in cost_result.values()])
         out["F"] = [f1, f2]
 
         # Example constraint: sum of variables should be less than or equal to a threshold
         g1 = []
         g2 = []
+        for cost in cost_result.values():
+            g1.append(self.eps - cost[4]) #能够到达充电站
+
         for c in self.cs:
-            g2.append(len(c.queue) - c.qlength)
+            for vid, atime in self.center.charge_stations[c].dispatch.items():
+                dispatch_cnt[(c, self.center.vehicles[vid].charge[1])] = dispatch_cnt.get((c, self.center.vehicles[vid].charge[1]), 0) + 1
+            for power in self.center.charge_stations[c].pile.keys():
+                g2.append(charge_cnt.get((c, power), 0) + dispatch_cnt.get((c, power), 0)
+                          + sum(self.center.charge_stations[c].pile.values()) / len(self.center.charge_stations[c].pile)
+                          - self.center.charge_stations[c].capacity / len(self.center.charge_stations[c].pile))
 
         out["G"] = [g1, g2]
 
@@ -71,8 +91,12 @@ class ChargingStationProblem(Problem):
 
 
         cost_drive_to_cs = cost_wait_to_cs = cost_drive = cost_wait = 0
+        if path[0] != self.center.vehicles[vehicle_id].origin or path[-1] != self.center.vehicles[vehicle_id].destination or cs_id not in path:
+            return [100000, 100000, 100000, 100000, 100000 * power]
         path_r = self.center.calculate_path(path)
         for index in range(len(path_r) - 1):
+            if (path[index], path[index + 1]) not in self.Graph.edges:
+                return [100000, 100000, 100000, 100000, 100000 * power]
             cost_drive += calculate_drive(path[index], path[index + 1])
             if path[index + 1] == cs_id:
                 cost_drive_to_cs = cost_drive
@@ -165,6 +189,50 @@ class DispatchCenter:
                     for i, time in charge_station.queue[p]:
                         sum_road += length * time
         return sum_road
+
+
+    def dispatch_plus(self, charge_vehicles, path_capacity, path_results, cs, eps = 0, path_detail=None):
+        # Create an instance of the ChargingStationProblem
+        problem = ChargingStationProblem(self, charge_vehicles, path_capacity, path_results, cs, eps, path_detail)
+
+        # Define the NSGA-II algorithm
+        algorithm = NSGA2(
+            pop_size=100,
+            sampling=IntegerRandomSampling(),
+            crossover=SBX(prob=0.9, eta=15),
+            mutation=PM(prob=0.1, eta=20),
+            eliminate_duplicates=True,
+            n_offsprings=100,
+            repair=None,
+            survival=None
+        )
+
+        # Run the optimization
+        result = minimize(problem,
+                          algorithm,
+                          ('n_gen', 200),
+                          seed=1,
+                          save_history=True,
+                          verbose=True)
+
+        # Process the results
+        for solution in result.X:
+            vehicle_id, path, cs_id, power = solution
+            vehicle = self.vehicles[vehicle_id]
+            vehicle.path = path
+            vehicle.charge = (cs_id, power)
+            vehicle.road = path[0]
+            if len(path) > 1:
+                vehicle.next_road = path[1]
+            else:
+                vehicle.next_road = -1
+            vehicle.drive()
+
+        print("Optimization completed. Best solutions found:")
+        print(result.X)
+        print("Objective values:")
+        print(result.F)
+
 
 
     def dispatch(self, charging_vehicles, path_results, current_time):
@@ -452,85 +520,6 @@ class DispatchCenter:
                     writer.writerow(info)
 
 
-
-        #备用版本（也就是老版本，可以对照检测下有无出错）
-        # for v in charging_vehicles:
-        #     vehicle = self.vehicles[v]
-        #     if self.log:
-        #         print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
-        #     if vehicle.origin in cs:
-        #         vehicle.charge = (vehicle.origin, list(self.charge_stations[vehicle.origin].pile.keys())
-        #                             [random.randint(0, len(list(self.charge_stations[vehicle.origin].pile.keys()))-1)])
-        #         if self.log:
-        #             print(f"车辆 {vehicle.id} 分配到充电站{vehicle.origin} (起点), 充电功率为{vehicle.charge[1]}")
-        #         vehicle.enter_charge()
-        #     elif vehicle.destination in cs:
-        #         vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
-        #                             [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys()))-1)])
-        #         if self.log:
-        #            print(f"车辆 {vehicle.id} 分配到充电站{vehicle.destination} (终点), 充电功率为{vehicle.charge[1]}")
-        #         time = 0
-        #         for i in vehicle.path:
-        #             time += self.edges[i].calculate_drive()
-        #         self.charge_stations[vehicle.charge[0]].dispatch[v] = t + time
-        #         self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
-        #         self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
-        #         if self.log:
-        #             print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
-        #         vehicle.drive()
-        #     else:
-        #         c_index = cs[random.randint(0, len(cs) - 1)]  ##这里没并算法就写个随机数吧
-        #         vehicle.charge = (c_index, list(self.charge_stations[c_index].pile.keys())
-        #                             [random.randint(0, len(list(self.charge_stations[c_index].pile.keys()))-1)])
-        #         if self.log:
-        #             print(f"车辆 {vehicle.id} 分配到充电站{c_index}, 充电功率为{vehicle.charge[1]} ")
-        #         if vehicle.origin != vehicle.charge[0]:
-        #             path1 = path_results[(vehicle.origin, vehicle.charge[0])][0]
-        #         else:
-        #             path1 = []
-        #         if vehicle.destination != vehicle.charge[0]:
-        #             path2 = path_results[(vehicle.charge[0], vehicle.destination)][0]
-        #         else:
-        #             path2 = []
-        #         if len(path1) >= 1:
-        #             path11 = path1[random.randint(0, len(path1) - 1)]
-        #         else:
-        #             path11 = []
-        #
-        #         if len(path2) >= 1:
-        #             path22 = path2[random.randint(0, len(path2) - 1)]
-        #         else:
-        #             path22 = []
-        #
-        #         true_path2 = []
-        #         true_path1 = []
-        #         for i in range(0, len(path11) - 1):
-        #             for edge in self.edges.values():
-        #                 if edge.origin == path11[i] and edge.destination == path11[i + 1]:
-        #                     true_path1.append(edge.id)
-        #         for i in range(0, len(path22) - 1):
-        #             for edge in self.edges.values():
-        #                 if edge.origin == path22[i] and edge.destination == path22[i + 1]:
-        #                     true_path2.append(edge.id)
-        #         vehicle.path = true_path1 + true_path2
-        #         if self.log:
-        #             print(f"重新分配的路径{vehicle.path}")
-        #         if len(vehicle.path) > 0:
-        #             vehicle.distance = self.edges[vehicle.path[0]].length
-        #         vehicle.road = vehicle.path[0]
-        #         self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
-        #         if len(vehicle.path) > 1:
-        #             vehicle.next_road = vehicle.path[1]
-        #         else:
-        #             vehicle.next_road = -1
-        #         self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple( self.edges[vehicle.road].capacity[vehicle.next_road], 1)
-        #         time = 0
-        #         for i in true_path1:
-        #             time += self.edges[i].calculate_drive()
-        #         self.charge_stations[vehicle.charge[0]].dispatch[v] = t + time
-        #         if self.log:
-        #             print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
-        #         vehicle.drive()
         return
 
 
@@ -1025,6 +1014,15 @@ class ChargeStation:
                 # print(L_q / l_e)
                 return L_q / l_e
 
+
+    def dispatch_rank(self, arrive_time):
+        cnt = 0
+        for v, t in self.dispatch.items():
+            if t <= arrive_time:
+                cnt += 1
+            else:
+                break
+        return cnt
 
     def check(self):
         """

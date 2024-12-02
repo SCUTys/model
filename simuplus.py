@@ -287,6 +287,7 @@ if __name__ == "__main__":
             print(f"传进dispatch的参数{i}")
             print(f"传进dispatch的参数{path_results}")
             center.dispatch(charge_v, path_results, i)
+            #center.dispatch_plus(self, charge_vehicles, path_capacity, path_results, cs, eps = 0, path_detail=None)
 
         for cs in center.charge_stations.values():
             cs.process()
