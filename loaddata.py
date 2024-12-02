@@ -11,21 +11,44 @@ def read_csv(file_path, cols):
 
 
 # 构建图
-def build_graph(df):
+def build_graph(df, k_dict = None):
     G = nx.DiGraph()  # 有向图
     for index, row in df.iterrows():
         origin = row['init_node']
         destination = row['term_node']
-        weight = row['length']
+        if k_dict is None:
+            weight = row['length']
+        else:
+            weight = row['length'] * k_dict[(origin, destination)]
         G.add_edge(origin, destination, weight=weight)
     return G
 
 
 # 使用 Dijkstra 算法计算路径
-def shortest_path(G, origin, destination):
-    paths = list(nx.all_shortest_paths(G, source=origin, target=destination, weight='weight'))
-    path = nx.dijkstra_path(G, origin, destination)
-    path_length = sum(G[u][v]['weight'] for u, v in zip(path[:-1], path[1:]))
+def shortest_path(G, origin, destination, k=1):
+    if k == 1:
+        paths = list(nx.all_shortest_paths(G, source=origin, target=destination, weight='weight'))
+        path = nx.dijkstra_path(G, origin, destination)
+        path_length = sum(G[u][v]['weight'] for u, v in zip(path[:-1], path[1:]))
+        # return paths, path_length
+    else:
+        paths = list(nx.shortest_simple_paths(G, source=origin, target=destination, weight='weight'))
+        result_paths = []
+        for i, path in enumerate(paths):
+            if i >= k:
+                break
+            result_paths.append(path)
+
+        while len(result_paths) < k:
+            try:
+                next_path = next(paths)
+                result_paths.append(next_path)
+            except StopIteration:
+                break
+
+        paths = sorted(result_paths, key=lambda p: sum(G[u][v]['weight'] for u, v in zip(p[:-1], p[1:])))
+        path_length = sum(G[u][v]['weight'] for u, v in zip(result_paths[0][:-1], result_paths[0][1:]))
+
     return paths, path_length
 
 
@@ -45,9 +68,9 @@ def process_od_pairs(G, od_pairs):
 
 
 # 主函数
-def main(file_path, od_pairs):
+def main(file_path, od_pairs, k_list=None):
     df = read_csv(file_path, ['init_node', 'term_node', 'length'])
-    G = build_graph(df)
+    G = build_graph(df, k_list)
     # print(G.edges(data=True))
 
     results = process_od_pairs(G, od_pairs)

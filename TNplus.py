@@ -5,6 +5,10 @@ import os
 import csv
 import ast
 
+import simuplus
+from simuplus import get_graph
+from pymoo.core.problem import Problem
+
 
 t = 1 #min
 T = 10 #min
@@ -12,9 +16,88 @@ k = 1
 cs_SF = [1, 5, 11, 13, 15, 20]
 cs_EMA = [6, 10, 11, 17, 19, 22, 23, 25, 27, 29, 30, 33, 34, 38, 40, 42, 44, 47, 48, 49, 52, 57, 60, 63, 65, 69]
 cs = cs_SF
-output_for_demo = True
+output_for_demo = False
 dispatch_list = {}
 use_csv_input = False
+
+class ChargingStationProblem(Problem):
+    '''
+    调度目标：充电车辆是否充电、充电站的选择、充电功率的选择、充电车辆的路径规划（起点-充电站-终点）
+    调度状态：路网形状、每条路车数、扩展的话加上车辆位置（road, next_road, distance, iswait）
+    G, road.capacity['all'], vehicle.road, vehicle.next_road, vehicle.distance, vehicle.iswait
+    调度约束：电量要够到充电、充电站容量不能超、一车至多对应一桩（反之亦然）、分配时需保证充电站仍足够满足该车充电需求
+    调度模板算法：多目标优化算法（NSGA2、SPEA2等）
+    '''
+    def __init__(self, center, charge_vehicles, path_capacity, path_results, cs, eps = 0, path_detail=None):
+        super().__init__(n_var=len(cs) * len(charge_vehicles), n_obj=2, n_constr=1, xl=0, xu=1, type_var=np.int)
+        self.center = center
+        self.charge_vehicles = charge_vehicles #需充电车辆集合
+        self.path_capacity = path_capacity #每条道路容量和实际流量
+        self.path_results = path_results
+        self.cs = cs
+        self.G = simuplus.get_graph()
+        if path_detail is None:
+            self.path_detail = path_detail
+        else:
+            self.path_detail = {}
+
+    def _evaluate(self, x, out, *args, **kwargs): ##这里的x希望能传[[vehicle_id, path, cs_id, power]]
+        cost_result = {}
+        for [vehicle_id, path, cs_id, power] in x:
+            cost_result[vehicle_id] = self.calculate_cost(vehicle_id, path, cs_id, power)
+
+        f1 = np.sum(x)  # Objective 1: Minimize the number of charging stations used
+        f2 = np.sum([self.calculate_cost(i, j) for i, j in zip(x[:-1], x[1:])])  # Objective 2: Minimize the total cost
+        out["F"] = [f1, f2]
+
+        # Example constraint: sum of variables should be less than or equal to a threshold
+        g1 = []
+        g2 = []
+        for c in self.cs:
+            g2.append(len(c.queue) - c.qlength)
+
+        out["G"] = [g1, g2]
+
+    def calculate_cost(self, vehicle_id, path, cs_id, power):
+        def calculate_wait(node_id, fr, to):
+            g, c = self.center.nodes[node_id].signal[(fr, to)]
+            cap, x = self.center.edges[fr].capacity[to]
+            return 0.5 * c * ((1 - g / c) ** 2 / (1 - min(1, x / cap) * g / c))
+
+        def calculate_drive(fr, to):
+            cap, x = self.center.edges[(fr, to)].capacity["all"]
+            return (self.center.edges[(fr, to)].length / self.center.edges[(fr, to)].free_time
+                    / (1 + self.center.edges[(fr, to)].b * (x / cap) ** self.center.edges[(fr, to)].power))
+
+
+        cost_drive_to_cs = cost_wait_to_cs = cost_drive = cost_wait = 0
+        path_r = self.center.calculate_path(path)
+        for index in range(len(path_r) - 1):
+            cost_drive += calculate_drive(path[index], path[index + 1])
+            if path[index + 1] == cs_id:
+                cost_drive_to_cs = cost_drive
+                cost_wait_to_cs = cost_wait
+            if index < len(path_r) - 1:
+                cost_wait += calculate_wait(path[index + 1], path_r[index], path_r[index + 1])
+
+        charge_s = self.center.charge_stations[cs_id]
+        if charge_s.t_cost[power][1] > 0 and charge_s.t_cost[power][0] > 0:
+            aver_charge = charge_s.t_cost[power][1] / charge_s.t_cost[power][0]
+        else:
+            aver_charge = 1
+        cost_queue = charge_s.calculate_wait_cs(charge_s.pile[power],
+                                                charge_s.capacity * charge_s.pile[power]/ sum(charge_s.pile.values()),
+                                                charge_s.v_arrive / T,
+                                                aver_charge)
+
+        cost_charge = (self.center.vehicles[vehicle_id].Emax
+                       - cost_drive * self.center.vehicles[vehicle_id].Edrive
+                       - (cost_wait + cost_queue) * self.center.vehicles[vehicle_id].Ewait) / power
+
+        return [cost_drive, cost_wait, cost_queue, cost_charge, cost_charge * power]
+
+
+
 
 
 class DispatchCenter:
@@ -92,6 +175,14 @@ class DispatchCenter:
         :param current_time:当前时间
         :return:无
         """
+
+
+
+
+
+
+
+
 
         #周期获取充电需求
         total_charge_cost = {}

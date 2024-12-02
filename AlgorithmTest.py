@@ -10,6 +10,15 @@
 #
 # These algorithms are designed to handle multi-objective optimization problems and can be used to find a set of Pareto-optimal solutions.
 
+
+'''
+调度目标：充电车辆是否充电、充电站的选择、充电功率的选择、充电车辆的路径规划（起点-充电站-终点）
+调度状态：路网形状、每条路车数、扩展的话加上车辆位置（road, next_road, distance, iswait）
+G, road.capacity['all'], vehicle.road, vehicle.next_road, vehicle.distance, vehicle.iswait
+调度约束：电量要够到充电、充电站容量不能超、一车至多对应一桩（反之亦然）、分配时需保证充电站仍足够满足该车充电需求
+调度模板算法：多目标优化算法（NSGA2、SPEA2等）
+'''
+
 import numpy as np
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.algorithms.moo.spea2 import SPEA2
@@ -19,6 +28,7 @@ from pymoo.operators.mutation.pm import PM
 from pymoo.termination.default import DefaultTermination
 from pymoo.optimize import minimize
 from pymoo.core.problem import Problem
+from TNplus import ChargeStation, Vehicle, DispatchCenter, Edge, Node
 
 class ChargingStationProblem(Problem):
     def __init__(self, vehicles, path_results, cs):
