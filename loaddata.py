@@ -53,12 +53,12 @@ def shortest_path(G, origin, destination, k=1):
 
 
 # 处理多个 OD 对
-def process_od_pairs(G, od_pairs):
+def process_od_pairs(G, od_pairs, k=1):
     results = {}
     for (origin, destination) in od_pairs:
         # print(origin, destination)
         try:
-            path, path_length = shortest_path(G, origin, destination)
+            path, path_length = shortest_path(G, origin, destination, k)
             results[(origin, destination)] = (path, path_length)
         except nx.NetworkXNoPath:
             results[(origin, destination)] = (None, None)
@@ -68,12 +68,12 @@ def process_od_pairs(G, od_pairs):
 
 
 # 主函数
-def main(file_path, od_pairs, k_list=None):
+def main(file_path, od_pairs, k_list=None, k=1):
     df = read_csv(file_path, ['init_node', 'term_node', 'length'])
     G = build_graph(df, k_list)
     # print(G.edges(data=True))
 
-    results = process_od_pairs(G, od_pairs)
+    results = process_od_pairs(G, od_pairs, k)
     # print(results)
     return results
     # for (origin, destination), (path, path_length) in results.items():
