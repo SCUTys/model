@@ -19,7 +19,6 @@ from pymoo.core.problem import Problem
 
 t = 1 #min
 T = 10 #min
-k = 1
 cs_SF = [1, 5, 11, 13, 15, 20]
 cs_EMA = [6, 10, 11, 17, 19, 22, 23, 25, 27, 29, 30, 33, 34, 38, 40, 42, 44, 47, 48, 49, 52, 57, 60, 63, 65, 69]
 cs = cs_SF
@@ -35,11 +34,10 @@ class ChargingStationProblem(Problem):
     调度约束：电量要够到充电、充电站容量不能超、一车至多对应一桩（反之亦然）、分配时需保证充电站仍足够满足该车充电需求
     调度模板算法：多目标优化算法（NSGA2、SPEA2等）
     '''
-    def __init__(self, center, charge_vehicles, path_capacity, path_results, cs, eps = 0, path_detail=None):
-        super().__init__(n_var=len(cs) * len(charge_vehicles), n_obj=2, n_constr=1, xl=0, xu=1, type_var=np.int)
+    def __init__(self, center, charge_vehicles, path_results, k = 1, eps = 0, path_detail=None):
+        super().__init__(n_var=len(cs) * len(charge_vehicles), n_obj=2, n_constr=1, xl=0, xu=k, type_var=int)
         self.center = center
         self.charge_vehicles = charge_vehicles #需充电车辆id集合
-        self.path_capacity = path_capacity #每条道路容量和实际流量
         self.path_results = path_results
         self.cs = cs
         self.eps = eps
@@ -49,7 +47,11 @@ class ChargingStationProblem(Problem):
             vehicle_id: (center.vehicles[vehicle_id].origin, center.vehicles[vehicle_id].destination) for vehicle_id in
             charge_vehicles}
 
-    def _evaluate(self, x, out, *args, **kwargs): ##这里的x希望能传[[vehicle_id, path, cs_id, power]]
+    def _evaluate(self, x, out, *args, **kwargs):##这里的x希望能传[[vehicle_id, path, cs_id, power]]
+        print(x)
+        print(len(x))
+        print(len(x[1]))
+        print(11234)
         cost_result = {}
         charge_cnt = {}
         dispatch_cnt = {}
@@ -191,9 +193,9 @@ class DispatchCenter:
         return sum_road
 
 
-    def dispatch_plus(self, charge_vehicles, path_capacity, path_results, cs, eps = 0, path_detail=None):
+    def dispatch_plus(self, charge_vehicles, path_results, k, eps = 0, path_detail=None):
         # Create an instance of the ChargingStationProblem
-        problem = ChargingStationProblem(self, charge_vehicles, path_capacity, path_results, cs, eps, path_detail)
+        problem = ChargingStationProblem(self, charge_vehicles, path_results, k, eps, path_detail)
 
         # Define the NSGA-II algorithm
         algorithm = NSGA2(
@@ -226,10 +228,11 @@ class DispatchCenter:
                 vehicle.next_road = path[1]
             else:
                 vehicle.next_road = -1
+            print(f'更新后的dispatch中，车辆{vehicle_id}的路径为{path}, 充电站为{cs_id}, 功率为{power}')
             vehicle.drive()
 
-        print("Optimization completed. Best solutions found:")
-        print(result.X)
+        # print("Optimization completed. Best solutions found:")
+        # print(result.X)
         print("Objective values:")
         print(result.F)
 

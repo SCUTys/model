@@ -22,11 +22,13 @@ csv_net_path = 'data/' + roadmap + '/' + roadmap + '_net.csv'
 csv_od_path = 'data/' + roadmap + '/' + roadmap + '_od.csv'
 node = {'SF': 24, 'EMA': 76}
 num_nodes = node[roadmap]
-batch_size = 60000
+batch_size = 2000
 all_log = False
 OD_from_csv = False
 dispatch_list = {}
 k_list = {}
+G = None
+k = 3
 
 
 class PathProcessor:
@@ -34,8 +36,8 @@ class PathProcessor:
         self.file_path = file_path
         self.od_pairs = od_pairs
 
-    def process_paths(self, k_list=None):
-        return ld.main(self.file_path, self.od_pairs, k_list)
+    def process_paths(self, k_list=None, k=1):
+        return ld.main(self.file_path, self.od_pairs, k_list, k)
 
     def get_shortest_path(self, G, origin, destination, k=1):
         return ld.shortest_path(G, origin, destination, k)
@@ -54,12 +56,15 @@ class ODGenerator:
     def load(self):
         df = ld.read_csv(self.file_path, ['O', 'D', 'Ton'])
         # df = df.dropna()
-        data_dict = {(row['O'], row['D']): int(row['Ton'] * 10) for _, row in df.iterrows()}
+        data_dict = {(row['O'], row['D']): int(row['Ton'] * 1) for _, row in df.iterrows()}
         return data_dict
 
     def distribute_od_pairs(self, data_dict, elements_per_category):
         # 计算总个数和组数
         return ld.distribute_od_pairs(data_dict, elements_per_category)
+
+def get_graph():
+    return G
 
 
 if __name__ == "__main__":
@@ -77,8 +82,7 @@ if __name__ == "__main__":
     if all_log:
         print(path_results)
 
-    def get_graph():
-        return G
+
 
     # print("Nodes in G:")
     # for node in G.nodes(data=True):
@@ -197,7 +201,7 @@ if __name__ == "__main__":
             if all_log:
                 print(f"在循环i={i}时加入新OD")
             OD = OD_results[int(i / 10)]
-            charge_num = int(batch_size * 0.15)
+            charge_num = int(batch_size * 0.2)
             charge_v = []
 
             # if i > 1 and i % T_pdn == 1:
@@ -281,13 +285,13 @@ if __name__ == "__main__":
                 road_index += 1
 
             G_k = processor.build_graph(csv_net_path, k_list)
-            path_results = processor.process_paths(k_list)
+            path_results = processor.process_paths(k_list, k)
 
 
             print(f"传进dispatch的参数{i}")
             print(f"传进dispatch的参数{path_results}")
-            center.dispatch(charge_v, path_results, i)
-            #center.dispatch_plus(self, charge_vehicles, path_capacity, path_results, cs, eps = 0, path_detail=None)
+            # center.dispatch(charge_v, path_results, i)
+            center.dispatch_plus(charge_v,  path_results, k, 0, path_detail=None)
 
         for cs in center.charge_stations.values():
             cs.process()
