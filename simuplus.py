@@ -290,7 +290,8 @@ if __name__ == "__main__":
 
             print(f"传进dispatch的参数{i}")
             print(f"传进dispatch的参数{path_results}")
-            center.dispatch(charge_v, path_results, i)
+            # center.dispatch(charge_v, path_results, i)
+            center.dispatch_plus(t, charge_v, center, batch_size, path_results, k, 0)
             # center.dispatch_plus(charge_v,  path_results, k, 0, path_detail=None)
 
         for cs in center.charge_stations.values():

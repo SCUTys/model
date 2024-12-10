@@ -1,7 +1,6 @@
 import numpy as np
 import simuplus
 import math
-from TNplus import ChargeStation, Vehicle, DispatchCenter, Edge, Node
 cs_SF = [1, 5, 11, 13, 15, 20]
 cs_EMA = [6, 10, 11, 17, 19, 22, 23, 25, 27, 29, 30, 33, 34, 38, 40, 42, 44, 47, 48, 49, 52, 57, 60, 63, 65, 69]
 cs = cs_SF
@@ -311,6 +310,7 @@ class NSGA2:
     def run(self):
         population = self.initialize_population()
         for gen in range(self.n_gen):
+            print(f"Generation {gen + 1}/{self.n_gen}")
             objectives = self.evaluate(population)
             fronts = self.non_dominated_sorting(objectives)
             selected_population = self.selection(population, fronts, objectives)
