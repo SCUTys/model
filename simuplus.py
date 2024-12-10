@@ -22,7 +22,7 @@ csv_net_path = 'data/' + roadmap + '/' + roadmap + '_net.csv'
 csv_od_path = 'data/' + roadmap + '/' + roadmap + '_od.csv'
 node = {'SF': 24, 'EMA': 76}
 num_nodes = node[roadmap]
-batch_size = 2000
+batch_size = 10000
 all_log = False
 OD_from_csv = False
 dispatch_list = {}
@@ -193,15 +193,15 @@ if __name__ == "__main__":
                 print("初始化充电站")
             for j in TNplus.cs:
                 center.charge_stations[j] = TNplus.ChargeStation(j, center, {}, {50: [], 120: []}, {50: [], 120: []},
-                                                                 250, {50: 100, 120: 100},
-                                                                 {50: (0, 0), 120: (0, 0)}, {50: 0, 120: 0},
+                                                                 25000, {120: 20000},
+                                                                 {120: (0, 0)}, {120: 0},
                                                                  False)  #规范充电桩功率为kw
 
         if i % T == 1 or i == 1:
             if all_log:
                 print(f"在循环i={i}时加入新OD")
             OD = OD_results[int(i / 10)]
-            charge_num = int(batch_size * 0.2)
+            charge_num = int(batch_size)
             charge_v = []
 
             # if i > 1 and i % T_pdn == 1:
@@ -290,8 +290,8 @@ if __name__ == "__main__":
 
             print(f"传进dispatch的参数{i}")
             print(f"传进dispatch的参数{path_results}")
-            # center.dispatch(charge_v, path_results, i)
-            center.dispatch_plus(charge_v,  path_results, k, 0, path_detail=None)
+            center.dispatch(charge_v, path_results, i)
+            # center.dispatch_plus(charge_v,  path_results, k, 0, path_detail=None)
 
         for cs in center.charge_stations.values():
             cs.process()
