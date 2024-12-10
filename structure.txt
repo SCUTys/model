@@ -152,3 +152,11 @@ Edges in G:
 (21, 20, {'weight': 6})
 (21, 22, {'weight': 2})
 (21, 24, {'weight': 3})
+
+
+外部信息：G(路网拓扑), center(交通端信息), charge_vehicles, path_results, path_detail（备选，更详细的道路车辆位置信息）
+每次调度的解：[[vehicle_id（其实直接省略了算了，按顺序对应charge_vehicles）, path, cs_id, power]] 比如[[13, [60, 26, 23, 11, 8, 5], 10, 50]]
+假设有i个充电站、j个功率选择、预处理点之间的k最短路
+转编码的话：
+01编码：[]
+0max(i, j, k)编码：[]
