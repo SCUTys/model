@@ -41,6 +41,8 @@ class compareDJ:
             path2 = 0 if D == cs[cs_index] else 1
             v_result = [path1, path2, cs_index + 1, 1]
             result += v_result
+        for i in range(min(self.batch_size, len(self.v_charge))):
+            print(f"车辆{i}的部分解为{result[4 * i: 4 * i + 4]}")
         return result
 
     def evaluate_individual(self, individual):
@@ -176,6 +178,7 @@ class compareDJ:
                                    self.center.charge_stations[c_s].capacity)
                     all_fit = 5
                     break
+
 
         eval_s = 0
         for m in range(self.cal_t):
@@ -547,7 +550,7 @@ class NSGA2:
                             cs_pcounts[c][k] += 1
                         ssum += charge_t1 + charge_t2
 
-                print(f"在此解{n_individual}中，车辆{self.v_charge[i]}的起点为{O}， 终点为{D}，节点路径为{path}，道路路径为{path_id}")
+                print(f"在此解{n_individual}中，车辆{self.v_charge[i]}的起点为{O}， 终点为{D}，充电站节点号为{c}，节点路径为{path}，道路路径为{path_id}")
 
 
             for m in range(self.cal_t):
