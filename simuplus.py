@@ -22,7 +22,7 @@ csv_net_path = 'data/' + roadmap + '/' + roadmap + '_net.csv'
 csv_od_path = 'data/' + roadmap + '/' + roadmap + '_od.csv'
 node = {'SF': 24, 'EMA': 76}
 num_nodes = node[roadmap]
-batch_size = 5000
+batch_size = 20000
 all_log = False
 OD_from_csv = True
 dispatch_list = {}
@@ -56,7 +56,7 @@ class ODGenerator:
     def load(self):
         df = ld.read_csv(self.file_path, ['O', 'D', 'Ton'])
         # df = df.dropna()
-        data_dict = {(row['O'], row['D']): int(row['Ton'] * 0.1) for _, row in df.iterrows()}
+        data_dict = {(row['O'], row['D']): int(row['Ton']) for _, row in df.iterrows()}
         return data_dict
 
     def distribute_od_pairs(self, data_dict, elements_per_category):
@@ -79,17 +79,8 @@ if __name__ == "__main__":
     processor = PathProcessor(csv_net_path, od_pairs)
     G = processor.build_graph(csv_net_path)
     path_results = processor.process_paths()
-    print(path_results)
+    # print(path_results)
 
-
-
-    # print("Nodes in G:")
-    # for node in G.nodes(data=True):
-    #     print(node)
-    #
-    # print("\nEdges in G:")
-    # for edge in G.edges(data=True):
-    #     print(edge)
 
     generator = ODGenerator(csv_od_path)
     data = generator.load()
@@ -114,7 +105,7 @@ if __name__ == "__main__":
             for sublist in OD_results:
                 writer.writerow(sublist)
 
-    print(OD_results)
+    # print(OD_results)
     print(len(OD_results), len(OD_results[0]), len(OD_results[1]), len(OD_results[2]))
     print("mother fucker")
 

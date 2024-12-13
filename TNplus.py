@@ -164,16 +164,20 @@ class DispatchCenter:
             if self.log:
                 print(f"车辆{vehicle.id} 在 {current_time}影响交通流")
             self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
-            print(f"road {vehicle.road} nextroad {vehicle.next_road}")
             self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
             if self.log:
                 print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
 
+        algorithm = EAalgorithm.compareDJ(charge_vehicles, center, batch_size, path_results, 10)
         algorithm = EAalgorithm.NSGA2(charge_vehicles, center, batch_size, path_results, 240, 120, k, k, len(cs), 1, eps)
+
+
+
+
         result = algorithm.run()
 
 
-        for i in range(batch_size):
+        for i in range(min(len(charge_vehicles), batch_size)):
             vehicle_id = charge_vehicles[i]
             vehicle = self.vehicles[vehicle_id]
             path1 = result[4 * i]
@@ -208,9 +212,9 @@ class DispatchCenter:
             vehicle.charge = (cs[c - 1], list(self.charge_stations[cs[c - 1]].pile.keys())[power - 1])
 
 
-            print(f"Vehicle {vehicle.id} assigned to charge station {cs[c - 1]} with power {list(self.charge_stations[cs[c - 1]].pile.keys())[power - 1]}, path{vehicle.path}")
-            print(f"path1{path1_result} path2{path2_result}")
-            print(f"origin{vehicle.origin} destination{vehicle.destination}")
+            # print(f"Vehicle {vehicle.id} assigned to charge station {cs[c - 1]} with power {list(self.charge_stations[cs[c - 1]].pile.keys())[power - 1]}, path{vehicle.path}")
+            # print(f"path1{path1_result} path2{path2_result}")
+            # print(f"origin{vehicle.origin} destination{vehicle.destination}")
 
             # process_path(vehicle)
             update_flow(vehicle, vehicle.path)
