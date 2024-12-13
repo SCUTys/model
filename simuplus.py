@@ -22,9 +22,9 @@ csv_net_path = 'data/' + roadmap + '/' + roadmap + '_net.csv'
 csv_od_path = 'data/' + roadmap + '/' + roadmap + '_od.csv'
 node = {'SF': 24, 'EMA': 76}
 num_nodes = node[roadmap]
-batch_size = 10000
+batch_size = 5000
 all_log = False
-OD_from_csv = False
+OD_from_csv = True
 dispatch_list = {}
 k_list = {}
 G = None
@@ -56,7 +56,7 @@ class ODGenerator:
     def load(self):
         df = ld.read_csv(self.file_path, ['O', 'D', 'Ton'])
         # df = df.dropna()
-        data_dict = {(row['O'], row['D']): int(row['Ton'] * 1) for _, row in df.iterrows()}
+        data_dict = {(row['O'], row['D']): int(row['Ton'] * 0.1) for _, row in df.iterrows()}
         return data_dict
 
     def distribute_od_pairs(self, data_dict, elements_per_category):
@@ -79,8 +79,7 @@ if __name__ == "__main__":
     processor = PathProcessor(csv_net_path, od_pairs)
     G = processor.build_graph(csv_net_path)
     path_results = processor.process_paths()
-    if all_log:
-        print(path_results)
+    print(path_results)
 
 
 
@@ -98,6 +97,7 @@ if __name__ == "__main__":
     random.shuffle(OD_results)
     for ODs in OD_results:
         random.shuffle(ODs)
+    # print(OD_results)
 
     # Specify the file name
     file_path = 'OD_output.csv'
@@ -114,6 +114,11 @@ if __name__ == "__main__":
             for sublist in OD_results:
                 writer.writerow(sublist)
 
+    print(OD_results)
+    print(len(OD_results), len(OD_results[0]), len(OD_results[1]), len(OD_results[2]))
+    print("mother fucker")
+
+
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
     edge_data = edge_data.dropna()
 
@@ -124,7 +129,7 @@ if __name__ == "__main__":
     for index, row in edge_data.iterrows():
         origin = int(row['init_node'])
         destination = int(row['term_node'])
-        capacity = int(row['capacity'])
+        capacity = int(row['capacity']) / 10
         length = float(row['length'])
         free_flow_time = float(row['free_flow_time'])
 
@@ -174,7 +179,7 @@ if __name__ == "__main__":
     v_index = 0
     # pdn = PDNplus.create_ieee14()
     # pdn_result = []
-    for i in range(1, len(OD_results)):
+    for i in range(1, len(OD_results)* T):
         # if all_log:
         print(f"主循环 {i}")
         for vehicle in center.vehicles:
@@ -285,14 +290,18 @@ if __name__ == "__main__":
                 road_index += 1
 
             G_k = processor.build_graph(csv_net_path, k_list)
-            path_results = processor.process_paths(k_list, k)
+            path_results = processor.process_paths(k_list)
 
 
-            print(f"传进dispatch的参数{i}")
-            print(f"传进dispatch的参数{path_results}")
-            # center.dispatch(charge_v, path_results, i)
-            center.dispatch_plus(t, charge_v, center, batch_size, path_results, k, 0)
-            # center.dispatch_plus(charge_v,  path_results, k, 0, path_detail=None)
+            # print(f"传进dispatch的参数{i}")
+            # print(f"传进dispatch的参数{path_results}")
+            # print(f"charge_v{charge_v}")
+            print(f"传进dispatch的i：{i}")
+            # if i / T <= 2:
+            #     center.dispatch(charge_v, path_results, i)
+            # else:
+            center.dispatch_plus(t, charge_v, center, batch_size, path_results, 1, 0)
+
 
         for cs in center.charge_stations.values():
             cs.process()

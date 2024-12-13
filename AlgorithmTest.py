@@ -29,7 +29,6 @@ from pymoo.operators.mutation.pm import PM
 from pymoo.termination.default import DefaultTermination
 from pymoo.optimize import minimize
 from pymoo.core.problem import Problem
-from TNplus import ChargeStation, Vehicle, DispatchCenter, Edge, Node
 
 
 cs_SF = [1, 5, 11, 13, 15, 20]

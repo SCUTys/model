@@ -35,6 +35,10 @@ class DispatchCenter:
         self.charge_stations = charge_stations
         self.log = log
 
+    def calculate_path(self, path):
+        return [edge.id for i in range(len(path) - 1) for edge in self.edges.values() if
+                edge.origin == path[i] and edge.destination == path[i + 1]]
+
     def vehicle(self):
         return self.vehicles
 
@@ -90,8 +94,6 @@ class DispatchCenter:
         for charge_station in self.charge_stations.values():
             total_charge_cost[f"EVCS {charge_station.id}"] = charge_station.cost / 10 / 1000
             charge_station.cost = 0
-        # print(total_charge_cost)
-        # print(222)
 
         # 周期获取每个充电站该周期内到达车数（这里按功率直接分开）
         arrive_num = {}
@@ -149,70 +151,10 @@ class DispatchCenter:
                                                      1 / charge_time[cs_id, cs_power])
                 return cs_time
 
-        def sort(var, var_cost):  # 按cost升序排序var中成分
-            list_pairs = zip(var, var_cost)
-            sorted_pairs = sorted(list_pairs, key=lambda x: x[1], reverse=True)
-            sorted_var, sorted_var_cost = zip(*sorted_pairs)
-            sorted_var = list(sorted_var)
-            return sorted_var
-
-        def get_vehicles_on_roads(self):
-            """
-            Returns a dictionary with road IDs as keys and a collection of vehicle information as values.
-            Vehicle information includes id, distance, iswait, and next_road.
-            """
-            road_vehicles = {}
-            for demo_v in self.vehicles:
-                if demo_v.road != -1:
-                    v_info = {
-                        'id': demo_v.id,
-                        'distance': demo_v.distance,
-                        'iswait': demo_v.is_wait,
-                        'next_road': demo_v.next_road
-                    }
-                    if demo_v.road not in road_vehicles:
-                        road_vehicles[demo_v.road] = []
-                    road_vehicles[demo_v.road].append(v_info)
-            return road_vehicles
 
         def calculate_path(path):
             return [edge.id for i in range(len(path) - 1) for edge in self.edges.values() if
                     edge.origin == path[i] and edge.destination == path[i + 1]]
-
-        def process_path(vehicle):
-            des_path_list1 = path_results[(vehicle.origin, vehicle.charge[0])][0]
-            path_id_list1 = []
-            path_cost1 = []
-            min_cs_power1 = min(list(self.charge_stations[vehicle.charge[0]].pile.keys()),
-                               key=lambda cs_power: calculate_cs_wait_time(vehicle.charge[0], cs_power))
-            for path in des_path_list1:
-                p_path = calculate_path(path)
-                path_id_list1.append(p_path)
-                path_cost1.append(calculate_TN_time_and_energy(p_path, 0))
-            sorted_path1 = sort(path_id_list1, path_cost1)
-            if (vehicle.E >= calculate_cs_wait_time(vehicle.charge[0], min_cs_power1) * vehicle.Ewait
-                                                            + calculate_TN_time_and_energy(sorted_path1[0], 0)):
-                vehicle.charge = (vehicle.charge[0], min_cs_power1)
-                path1 = sorted_path1[0]
-            else:
-                path1 = sorted_path1[0]
-
-            des_path_list2 = path_results[(vehicle.charge[0], vehicle.destination)][0]
-            path_id_list2 = []
-            path_cost2 = []
-            for path in des_path_list2:
-                p_path = calculate_path(path)
-                path_id_list2.append(p_path)
-                path_cost2.append(calculate_TN_time_and_energy(p_path, 0))
-            sorted_path2 = sort(path_id_list2, path_cost2)
-            if vehicle.E >= calculate_TN_time_and_energy(sorted_path2[0], 0):
-                path2 = sorted_path2[0]
-            else:
-                path2 = sorted_path2[0]
-
-            vehicle.path = path1 + path2
-            vehicle.road = vehicle.path[0]
-            vehicle.next_road = vehicle.path[1]
 
 
         # #调度结果影响交通
@@ -222,47 +164,58 @@ class DispatchCenter:
             if self.log:
                 print(f"车辆{vehicle.id} 在 {current_time}影响交通流")
             self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
+            print(f"road {vehicle.road} nextroad {vehicle.next_road}")
             self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
             if self.log:
                 print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
 
-
-        algorithm = EAalgorithm.NSGA2(charge_vehicles, center, batch_size, path_results, 200, 200, k, k, len(cs), 1, eps)
+        algorithm = EAalgorithm.NSGA2(charge_vehicles, center, batch_size, path_results, 240, 120, k, k, len(cs), 1, eps)
         result = algorithm.run()
 
-        for individual in result:
-            for i in range(batch_size):
-                vehicle_id = charge_vehicles[i]
-                vehicle = self.vehicles[vehicle_id]
-                path1 = individual[4 * i]
-                path2 = individual[4 * i + 1]
-                c = individual[4 * i + 2]
-                power = individual[4 * i + 3]
 
-                if path1 == 0:
-                    vehicle.charge = (vehicle.origin, power)
-                    path1_result = []
-                else:
-                    path1_result = path_results[(vehicle.origin, c)][path1 - 1]
+        for i in range(batch_size):
+            vehicle_id = charge_vehicles[i]
+            vehicle = self.vehicles[vehicle_id]
+            path1 = result[4 * i]
+            path2 = result[4 * i + 1]
+            c = result[4 * i + 2]
+            power = result[4 * i + 3]
+            O = vehicle.origin
+            D = vehicle.destination
 
-                if path2 == 0:
-                    path2_result = []
-                else:
-                    path2_result = path_results[(c, vehicle.destination)][path2 - 1]
+            if O == cs[c - 1]:
+                path1_result = []
+            else:
+                # print(cs)
+                # print(path_results)
+                path1_result = path_results[(O, cs[c - 1])][0][path1 - 1]
 
-                vehicle.path = path1_result + path2_result
-                vehicle.road = vehicle.path[0] if vehicle.path else -1
-                vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
-                vehicle.charge = (c, power)
+            if D == cs[c - 1]:
+                path2_result = []
+            else:
+                # print(cs)
+                # print(path_results)
+                path2_result = path_results[(cs[c - 1], D)][0][path2 - 1]
 
-                if self.log:
-                    print(f"Vehicle {vehicle.id} assigned to charge station {c} with power {power}")
+            if path1_result and path2_result and path1_result[-1] == path2_result[0]:
+                path = path1_result + path2_result[1:]
+            else:
+                path = path1_result + path2_result
 
-                process_path(vehicle)
-                update_flow(vehicle, vehicle.path)
-                vehicle.drive()
+            vehicle.path = calculate_path(path)
+            vehicle.road = vehicle.path[0]
+            vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
+            vehicle.charge = (cs[c - 1], list(self.charge_stations[cs[c - 1]].pile.keys())[power - 1])
 
-        return
+
+            print(f"Vehicle {vehicle.id} assigned to charge station {cs[c - 1]} with power {list(self.charge_stations[cs[c - 1]].pile.keys())[power - 1]}, path{vehicle.path}")
+            print(f"path1{path1_result} path2{path2_result}")
+            print(f"origin{vehicle.origin} destination{vehicle.destination}")
+
+            # process_path(vehicle)
+            update_flow(vehicle, vehicle.path)
+            vehicle.drive()
+
 
 
 
@@ -709,7 +662,7 @@ class Vehicle:
                     print(f'在车辆 {self.id} change_road中道路{self.road}流量-1')
 
             self.road = self.next_road
-
+            print(self.index)
             if self.index < len(self.path) - 1:
                 self.index += 1
                 self.next_road = self.path[self.index]
