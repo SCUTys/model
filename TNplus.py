@@ -15,6 +15,7 @@ cs = cs_SF
 output_for_demo = False
 dispatch_list = {}
 use_csv_input = False
+from scipy.special import gammaln
 
 
 class DispatchCenter:
@@ -94,14 +95,16 @@ class DispatchCenter:
         for charge_station in self.charge_stations.values():
             total_charge_cost[f"EVCS {charge_station.id}"] = charge_station.cost / 10 / 1000
             charge_station.cost = 0
+        # print("获取充电信息完成")
 
         # 周期获取每个充电站该周期内到达车数（这里按功率直接分开）
         arrive_num = {}
         for charge_station in self.charge_stations.values():
             for pile in charge_station.pile.keys():
-                print(charge_station.v_arrive[pile])
+                # print(charge_station.v_arrive[pile])
                 arrive_num[(charge_station.id, pile)] = charge_station.v_arrive[pile] / T
                 charge_station.v_arrive[pile] = 0
+        # print("获取到达车数完成")
 
         # 周期获取每个充电站车辆平均充电时长
         charge_time = {}
@@ -119,6 +122,7 @@ class DispatchCenter:
                                                                -charge_station.t_cost[pile][0], 0)
                 charge_station.t_cost[pile] = self.solve_tuple(charge_station.t_cost[pile],
                                                                -charge_station.t_cost[pile][1], 1)
+        # print("获取平均时长完成")
 
         # 根据需求生成电价（也是示例）
         if 0 not in list(total_charge_cost.values()):
@@ -129,6 +133,7 @@ class DispatchCenter:
             cs_prob = softmax_prob / np.sum(softmax_prob)
         else:
             cs_prob = [1 / len(cs)] * len(cs)
+        # print("生成电价完成")
 
         def calculate_TN_time_and_energy(path, eps):
             road_time = 0
@@ -169,7 +174,7 @@ class DispatchCenter:
                 print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
 
         algorithm = EAalgorithm.compareDJ(charge_vehicles, center, batch_size, path_results, 10)
-        # algorithm = EAalgorithm.NSGA2(charge_vehicles, center, batch_size, path_results, 240, 120, k, k, len(cs), 1, eps)
+        algorithm = EAalgorithm.NSGA2(charge_vehicles, center, batch_size, path_results, 240, 120, k, k, len(cs), 1, eps)
 
 
 
@@ -251,15 +256,16 @@ class DispatchCenter:
             total_charge_cost[f"EVCS {charge_station.id}"] = charge_station.cost / 10 / 1000
             charge_station.cost = 0
         # print(total_charge_cost)
-        # print(222)
+        # print("获取充电信息完成")
 
         #周期获取每个充电站该周期内到达车数（这里按功率直接分开）
         arrive_num = {}
         for charge_station in self.charge_stations.values():
             for pile in charge_station.pile.keys():
-                print(charge_station.v_arrive[pile])
+                # print(charge_station.v_arrive[pile])
                 arrive_num[(charge_station.id, pile)] = charge_station.v_arrive[pile] / T
                 charge_station.v_arrive[pile] = 0
+        # print("获取到达车数完成")
 
         #周期获取每个充电站车辆平均充电时长
         charge_time = {}
@@ -276,6 +282,9 @@ class DispatchCenter:
                                                                 -charge_station.t_cost[pile][0], 0)
                 charge_station.t_cost[pile] = self.solve_tuple(charge_station.t_cost[pile],
                                                                 -charge_station.t_cost[pile][1], 1)
+        # print("获取平均时长完成")
+
+
 
 
         #根据需求生成电价（也是示例）
@@ -287,6 +296,7 @@ class DispatchCenter:
             cs_prob = softmax_prob / np.sum(softmax_prob)
         else:
             cs_prob = [1 / len(cs)] * len(cs)
+        # print("生成电价完成")
 
 
 
@@ -310,6 +320,13 @@ class DispatchCenter:
                                                      arrive_num[cs_id, cs_power],
                                                      1 / charge_time[cs_id, cs_power])
                 return cs_time
+
+        wait_cs = {}
+        print("预处理排队花费")
+        for c in cs:
+            for p in self.charge_stations[c].pile.keys():
+                wait_cs[(c, p)] = calculate_cs_wait_time(c, p)
+        print("预处理完成")
 
 
         def sort(var, var_cost): #按cost升序排序var中成分
@@ -370,23 +387,30 @@ class DispatchCenter:
                     vehicle.drive()
 
             else:
+                # print("随机分配充电站")
                 if vehicle.origin in cs: #若起点可充电，直接在起点充电
+                    # print("起点可充")
                     charge_id = vehicle.origin
                     vehicle.charge = (vehicle.origin, list(self.charge_stations[vehicle.origin].pile.keys())
                     [random.randint(0, len(list(self.charge_stations[vehicle.origin].pile.keys())) - 1)])
                 elif vehicle.destination in cs: #若终点可充电，判断是否能到达终点，可以就分配至终点
+                    # print("终点可充")
                     des_path_list = path_results[(vehicle.origin, vehicle.destination)][0]
                     # print(f"起点{vehicle.origin}, 终点{vehicle.destination}")
                     path_id_list = []
                     path_cost = []
-                    min_cs_power = min(list(self.charge_stations[vehicle.destination].pile.keys()), key=lambda cs_power: calculate_cs_wait_time(vehicle.destination, cs_power))
+                    min_cs_power = 120
+                    # min_cs_power = min(list(self.charge_stations[vehicle.destination].pile.keys()), key=lambda cs_power: calculate_cs_wait_time(vehicle.destination, cs_power))
                     # print(f"vehicle id : {vehicle.id}, {calculate_cs_wait_time(vehicle.destination, min_cs_power)}")
+                    # print("开始写去终点路径")
                     for path in des_path_list:
                         p_path = calculate_path(path)
                         path_id_list.append(p_path)
                         path_cost.append(calculate_TN_time_and_energy(p_path, 0))
+                    # print("有完没完")
                     sorted_path = sort(path_id_list, path_cost)
-                    if vehicle.E >= calculate_cs_wait_time(vehicle.destination, min_cs_power) * vehicle.Ewait + calculate_TN_time_and_energy(sorted_path[0], 0):
+                    # print("去终点路径写好了")
+                    if vehicle.E >= wait_cs[(vehicle.destination, min_cs_power)] * vehicle.Ewait + calculate_TN_time_and_energy(sorted_path[0], 0):
                         charge_id = vehicle.destination
                         vehicle.charge = (vehicle.destination, min_cs_power)
                         vehicle.path = sorted_path[0]
@@ -407,6 +431,7 @@ class DispatchCenter:
                     # vehicle.charge = (vehicle.destination, list(self.charge_stations[vehicle.destination].pile.keys())
                     #     [random.randint(0, len(list(self.charge_stations[vehicle.destination].pile.keys())) - 1)])
                 else:
+                    # print("中间充电")
                     charge_id = random.choices(cs, cs_prob)[0]
                     vehicle.charge = (charge_id, list(self.charge_stations[charge_id].pile.keys())
                     [random.randint(0, len(list(self.charge_stations[charge_id].pile.keys())) - 1)])
@@ -423,13 +448,13 @@ class DispatchCenter:
             path_id_list1 = []
             path_cost1 = []
             min_cs_power1 = min(list(self.charge_stations[vehicle.charge[0]].pile.keys()),
-                               key=lambda cs_power: calculate_cs_wait_time(vehicle.charge[0], cs_power))
+                               key=lambda cs_power: wait_cs[(vehicle.charge[0], cs_power)])
             for path in des_path_list1:
                 p_path = calculate_path(path)
                 path_id_list1.append(p_path)
                 path_cost1.append(calculate_TN_time_and_energy(p_path, 0))
             sorted_path1 = sort(path_id_list1, path_cost1)
-            if (vehicle.E >= calculate_cs_wait_time(vehicle.charge[0], min_cs_power1) * vehicle.Ewait
+            if (vehicle.E >= wait_cs[(vehicle.charge[0], min_cs_power1)] * vehicle.Ewait
                                                             + calculate_TN_time_and_energy(sorted_path1[0], 0)):
                 vehicle.charge = (vehicle.charge[0], min_cs_power1)
                 path1 = sorted_path1[0]
@@ -467,11 +492,14 @@ class DispatchCenter:
 
         def vehicle_process(vehicle):
             if vehicle.charge[0] == vehicle.origin:
+                # print("充电站在脸上")
                 vehicle.enter_charge()
             elif vehicle.charge[0] == vehicle.destination:
+                # print("充电站在终点")
                 update_flow(vehicle, vehicle.path)
                 vehicle.drive()
             else:
+                # print("充电站在中间")
                 process_path(vehicle)
                 update_flow(vehicle, vehicle.path)
                 vehicle.drive()
@@ -483,12 +511,15 @@ class DispatchCenter:
             for edge in self.edges.values():
                 print(f"edge {edge.id} capacity: {edge.capacity}")
 
+        # print("开始调度(主函数执行)")
         for v in charging_vehicles:
             vehicle = self.vehicles[v]
             if self.log:
                 print(f"车辆 {vehicle.id} 原路径{vehicle.path},从{vehicle.origin}到{vehicle.destination}")
+            # print("分配充电站")
             assign_cs(vehicle)
             if not use_csv_input:
+                # print("处理路径")
                 vehicle_process(vehicle)
             if output_for_demo:
                 info = {
@@ -511,8 +542,6 @@ class DispatchCenter:
                     if not file_exists:
                         writer.writeheader()
                     writer.writerow(info)
-
-
         return
 
 
@@ -666,7 +695,7 @@ class Vehicle:
                     print(f'在车辆 {self.id} change_road中道路{self.road}流量-1')
 
             self.road = self.next_road
-            print(self.index)
+            # print(self.index)
             if self.index < len(self.path) - 1:
                 self.index += 1
                 self.next_road = self.path[self.index]
@@ -936,9 +965,13 @@ class ChargeStation:
         def calculate_p_0(rou, s, k, rou_s):
             p_0 = 0
 
+            # print("算个啥呢",end='')
+            # print(rou, s, k, rou_s)
             for i in range(s):
-                p_0 += math.exp(i * math.log(rou) - math.log(math.factorial(i)))
+                # print(i, end=" ")
+                p_0 += math.exp(i * math.log(rou) - gammaln(i + 1))
 
+            # print(f"循环完了")
             if rou_s == 1:
                 log_term = math.log(k - s + 1) + s * math.log(rou) - math.log(math.factorial(s))
                 p_0 += math.exp(log_term)
@@ -953,30 +986,31 @@ class ChargeStation:
                 log_term = term1 + term2
                 p_0 += math.exp(log_term)
 
+            # print("p_0算完了")
             return 1 / p_0
 
         def calculate_p_k(p_0, rou, k, s):
             if k < s:
                 print("k < s")
-                return p_0 * (rou ** k) / math.factorial(k)
+                return p_0 * (rou ** k) / math.exp(gammaln(k + 1))
             else:
                 log_p_k = (math.log(p_0)
                            + k * math.log(rou)
-                           - math.log(math.factorial(s))
+                           - gammaln(s + 1)
                            - (k - s) * math.log(s))
                 return math.exp(log_p_k)
 
         def calculate_L_q(p_0, rou, s, k, rou_s):
             if rou_s == 1:
-                log_L_q = math.log(p_0) + s * math.log(rou) + math.log(k - s) + math.log(k - s + 1) - math.log(
-                    2) - math.log(math.factorial(s))
+                log_L_q = (math.log(p_0) + s * math.log(rou) + math.log(k - s) + math.log(k - s + 1)
+                           - math.log(2) - gammaln(s + 1))
                 L_q = math.exp(log_L_q)
             else:
                 log_part1 = math.log(p_0) + s * math.log(rou) + math.log(rou_s)
                 log_part2_1 = (k - s + 1) * math.log(rou_s) + math.log(k - s)
                 log_part2_2 = (k - s) * math.log(rou_s) + math.log(k - s + 1)
                 log_part2 = math.log(1 + math.exp(log_part2_1) - math.exp(log_part2_2))
-                log_part3 = - math.log(math.factorial(s)) - math.log(math.fabs(1 - rou_s)) * 2
+                log_part3 = - gammaln(s + 1) - 2 * math.log(math.fabs(1 - rou_s))
 
                 log_L_q = log_part1 + log_part2 + log_part3
                 L_q = math.exp(log_L_q)

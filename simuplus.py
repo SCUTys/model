@@ -22,9 +22,9 @@ csv_net_path = 'data/' + roadmap + '/' + roadmap + '_net.csv'
 csv_od_path = 'data/' + roadmap + '/' + roadmap + '_od.csv'
 node = {'SF': 24, 'EMA': 76}
 num_nodes = node[roadmap]
-batch_size = 20000
+batch_size = 7212
 all_log = False
-OD_from_csv = True
+OD_from_csv = False
 dispatch_list = {}
 k_list = {}
 G = None
@@ -67,6 +67,28 @@ def get_graph():
     return G
 
 
+class ODGenerator2:
+    def __init__(self, file_path, count = 100):
+        self.file_path = file_path
+        self.count = count
+
+    def load(self):
+        df = ld.read_csv(self.file_path, ['O', 'D', 'Ton'])
+        data_dict = {(row['O'], row['D']): int(row['Ton']) for _, row in df.iterrows()}
+        return data_dict
+
+    def generate_od_pairs(self, data_dict):
+        od_result = []
+        for i in range(self.count):
+            od_pairs = []
+            for (O, D), ton in data_dict.items():
+                count = int(ton / 50)
+                od_pairs.extend([(O, D)] * count)
+            random.shuffle(od_pairs)
+            od_result.append(od_pairs)
+        return od_result
+
+
 if __name__ == "__main__":
 
     od_pairs = []
@@ -82,13 +104,18 @@ if __name__ == "__main__":
     # print(path_results)
 
 
-    generator = ODGenerator(csv_od_path)
-    data = generator.load()
-    OD_results = generator.distribute_od_pairs(data, batch_size)
+    # generator = ODGenerator(csv_od_path)
+    # data = generator.load()
+    # OD_results = generator.distribute_od_pairs(data, batch_size)
+    # random.shuffle(OD_results)
+    # for ODs in OD_results:
+    #     random.shuffle(ODs)
+
+    generator2 = ODGenerator2(csv_od_path)
+    data = generator2.load()
+    OD_results = generator2.generate_od_pairs(data)
     random.shuffle(OD_results)
-    for ODs in OD_results:
-        random.shuffle(ODs)
-    # print(OD_results)
+    print(len(OD_results), len(OD_results[0]), len(OD_results[1]), len(OD_results[2]))
 
     # Specify the file name
     file_path = 'OD_output.csv'
@@ -120,7 +147,7 @@ if __name__ == "__main__":
     for index, row in edge_data.iterrows():
         origin = int(row['init_node'])
         destination = int(row['term_node'])
-        capacity = int(row['capacity']) / 10
+        capacity = int(row['capacity'] / 100)
         length = float(row['length'])
         free_flow_time = float(row['free_flow_time'])
 
@@ -170,7 +197,7 @@ if __name__ == "__main__":
     v_index = 0
     # pdn = PDNplus.create_ieee14()
     # pdn_result = []
-    for i in range(1, len(OD_results)* T):
+    for i in range(1, 8 * 3):
         # if all_log:
         print(f"主循环 {i}")
         for vehicle in center.vehicles:
@@ -193,10 +220,11 @@ if __name__ == "__main__":
                                                                  {120: (0, 0)}, {120: 0},
                                                                  False)  #规范充电桩功率为kw
 
-        if i % T == 1 or i == 1:
+        if i % 3 == 1 or i == 1:
+            print("加入新车")
             if all_log:
                 print(f"在循环i={i}时加入新OD")
-            OD = OD_results[int(i / 10)]
+            OD = OD_results[int(i / 3)]
             charge_num = int(batch_size)
             charge_v = []
 
@@ -288,8 +316,10 @@ if __name__ == "__main__":
             # print(f"传进dispatch的参数{path_results}")
             # print(f"charge_v{charge_v}")
             print(f"传进dispatch的i：{i}")
+            print(f"充电车数量为{len(charge_v)}")
+            print(66666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666)
             # if i / T <= 2:
-            #     center.dispatch(charge_v, path_results, i)
+            # center.dispatch(charge_v, path_results, i)
             # else:
             center.dispatch_plus(t, charge_v, center, batch_size, path_results, 1, 0)
 
