@@ -174,7 +174,8 @@ class DispatchCenter:
                 print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
 
         algorithm = EAalgorithm.compareDJ(charge_vehicles, center, batch_size, path_results, 10)
-        algorithm = EAalgorithm.NSGA2(charge_vehicles, center, batch_size, path_results, 240, 120, k, k, len(cs), 1, eps)
+        algorithm = EAalgorithm.NSGA2(charge_vehicles, center, batch_size, path_results, 200, 100, k, k, len(cs), 1, eps)
+        algorithm = EAalgorithm.SPEA2(charge_vehicles, center, batch_size, path_results, 200, 100, k, k, len(cs), 1, eps)
 
 
 
