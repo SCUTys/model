@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 from pandapower.networks import create_synthetic_voltage_control_lv_network
 import TNplus
+import PDNplus
 import loaddata as ld
 import random
 import csv
@@ -29,6 +30,7 @@ dispatch_list = {}
 k_list = {}
 G = None
 k = 3
+rate = 0.5
 
 
 class PathProcessor:
@@ -133,14 +135,14 @@ if __name__ == "__main__":
                 writer.writerow(sublist)
 
     # print(OD_results)
-    print(len(OD_results), len(OD_results[0]), len(OD_results[1]), len(OD_results[2]))
-    print("mother fucker")
+    # print(len(OD_results), len(OD_results[0]), len(OD_results[1]), len(OD_results[2]))
+    # print("mother fucker")
 
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
     edge_data = edge_data.dropna()
 
-    center = TNplus.DispatchCenter([], {}, {}, {}, False)
+    center = TNplus.DispatchCenter([], {}, {}, {}, [], False)
     nodes = []
     edge_id = 1
 
@@ -173,6 +175,7 @@ if __name__ == "__main__":
         k_list[(origin, destination)] = 1
         edge = TNplus.Edge(edge_id, center, origin, destination, length, {}, free_flow_time, 0.15, 4)
         edge.capacity["all"] = (capacity, 0)
+        edge.capacity["charge"] = (capacity, 0)
         edge.capacity[-1] = (capacity, 0)
         center.edges[edge_id] = edge
         edge_id += 1
@@ -195,8 +198,8 @@ if __name__ == "__main__":
             print(node.signal)
 
     v_index = 0
-    # pdn = PDNplus.create_ieee14()
-    # pdn_result = []
+    pdn = PDNplus.create_ieee14()
+    pdn_result = []
     for i in range(1, 8 * 3):
         # if all_log:
         print(f"主循环 {i}")
@@ -225,20 +228,20 @@ if __name__ == "__main__":
             if all_log:
                 print(f"在循环i={i}时加入新OD")
             OD = OD_results[int(i / 3)]
-            charge_num = int(batch_size)
+            charge_num = int(batch_size * rate)
             charge_v = []
 
-            # if i > 1 and i % T_pdn == 1:
-            #     total_charge_cost = {}
-            #     for cs in center.charge_stations.values():
-            #         total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
-            #         cs.cost = 0
-            #     PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
-            #     PDNplus.run(pdn, 30)
-            #     pdn_loss = PDNplus.calculate_loss(pdn, 140)
-            #     pdn_result.append(pdn_loss)
-            # print(pdn_loss)
-            # print(555)
+            if i > 1 and i % T_pdn == 1:
+                total_charge_cost = {}
+                for cs in center.charge_stations.values():
+                    total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
+                    cs.cost = 0
+                PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
+                PDNplus.run(pdn, 30)
+                pdn_loss = PDNplus.calculate_loss(pdn, 140)
+                pdn_result.append(pdn_loss)
+            print(pdn_loss)
+            print(555)
 
             for (O, D) in OD:
                 choice = path_results[(O, D)][0]
@@ -269,6 +272,7 @@ if __name__ == "__main__":
                     else:
                         charge_num -= 1
                         charge_v.append(v_index)
+                        center.charge_id.append(v_index)
 
 
                 elif len(choice) == 1:
@@ -298,6 +302,7 @@ if __name__ == "__main__":
                     else:
                         charge_num -= 1
                         charge_v.append(v_index)
+                        center.charge_id.append(v_index)
 
                 v_index += 1
 
@@ -319,9 +324,9 @@ if __name__ == "__main__":
             print(f"充电车数量为{len(charge_v)}")
             print(66666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666)
             # if i / T <= 2:
-            # center.dispatch(charge_v, path_results, i)
-            # else:
-            center.dispatch_plus(t, charge_v, center, batch_size, path_results, 1, 0)
+            center.dispatch(charge_v, path_results, i)
+            # # else:
+            # center.dispatch_plus(t, charge_v, center, batch_size, path_results, 1, 0)
 
 
         for cs in center.charge_stations.values():
