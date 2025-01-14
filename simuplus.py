@@ -84,7 +84,7 @@ class ODGenerator2:
         for i in range(self.count):
             od_pairs = []
             for (O, D), ton in data_dict.items():
-                count = int(ton / 50)
+                count = int(ton / 10)
                 od_pairs.extend([(O, D)] * count)
             random.shuffle(od_pairs)
             od_result.append(od_pairs)
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     for index, row in edge_data.iterrows():
         origin = int(row['init_node'])
         destination = int(row['term_node'])
-        capacity = int(row['capacity'] / 100)
+        capacity = int(row['capacity'] / 10)
         length = float(row['length'])
         free_flow_time = float(row['free_flow_time'])
 
@@ -231,16 +231,18 @@ if __name__ == "__main__":
             charge_num = int(batch_size * rate)
             charge_v = []
 
-            if i > 1 and i % T_pdn == 1:
-                total_charge_cost = {}
-                for cs in center.charge_stations.values():
-                    total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
-                    cs.cost = 0
-                PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
-                PDNplus.run(pdn, 30)
-                pdn_loss = PDNplus.calculate_loss(pdn, 140)
-                pdn_result.append(pdn_loss)
+
+            total_charge_cost = {}
+            for cs in center.charge_stations.values():
+                total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
+                cs.cost = 0
+            PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
+            PDNplus.run(pdn, 30)
+            pdn_loss = PDNplus.calculate_loss(pdn, 140)
+            pdn_result.append(pdn_loss)
             print(pdn_loss)
+            print(555)
+            print(center.calculate_lost())
             print(555)
 
             for (O, D) in OD:
@@ -352,12 +354,12 @@ if __name__ == "__main__":
         print(' ')
         sum2 += edge.capacity['all'][1]
 
-    # for cs in center.charge_stations.values():
-    #     print(f"{cs.id} : {cs.capacity}")
-    #     print(f"{cs.id} : {cs.dispatch}")
-    #     print(f"{cs.id} : {cs.queue}")
-    #     print(f"{cs.id} : {cs.charge}")
-    #     print(' ')
+    for cs in center.charge_stations.values():
+        print(f"{cs.id} : {cs.capacity}")
+        print(f"{cs.id} : {cs.dispatch}")
+        print(f"{cs.id} : {cs.queue}")
+        print(f"{cs.id} : {cs.charge}")
+        print(' ')
 
     print(f"道路行驶车辆{sum2}")
     print(f"已到达车辆{sum1}")

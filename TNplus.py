@@ -75,9 +75,11 @@ class DispatchCenter:
         sum_road = 0
         for edge in self.edges.values():
             sum_road += edge.capacity["charge"][1] * edge.calculate_drive()
+            # print(f"道路{edge.id}，流量{edge.capacity['charge'][1]}，时间{edge.calculate_drive()}")
         for node in self.nodes.values():
             for i, is_wait in node.wait:
                 sum_road += is_wait
+
         for charge_station in self.charge_stations.values():
             if list(charge_station.charge.values()) != [[]]:
                 for ipair in charge_station.charge.values():
