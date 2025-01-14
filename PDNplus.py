@@ -9,27 +9,27 @@ def create_ieee14():
     # print(net)
 
     # 在节点2添加充电站
-    pp.create_load(net, bus=1, p_mw=17, q_mvar=3.4, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 1", controllable=True)
+    pp.create_load(net, bus=1, p_mw=0.3, q_mvar=0.06, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 1", controllable=True)
     pp.create_load(net, bus=1, p_mw=0.03, q_mvar=0.006, name="EVCS 1 Auxiliary Load")
 
     # 在节点4添加充电站
-    pp.create_load(net, bus=3, p_mw=17, q_mvar=3.4, min_p_mw=1, min_q_mvar=0.2, max_p_mw=1., max_q_mvar=3.4, name="EVCS 5", controllable=True)
+    pp.create_load(net, bus=3, p_mw=0.3, q_mvar=0.06, min_p_mw=1, min_q_mvar=0.2, max_p_mw=1., max_q_mvar=3.4, name="EVCS 5", controllable=True)
     pp.create_load(net, bus=3, p_mw=0.03, q_mvar=0.006, name="EVCS 5 Auxiliary Load")
     #
     # 在节点7添加充电站
-    pp.create_load(net, bus=6, p_mw=17, q_mvar=3.4, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 16", controllable=True)
+    pp.create_load(net, bus=6, p_mw=0.3, q_mvar=0.06, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 16", controllable=True)
     pp.create_load(net, bus=6, p_mw=0.03, q_mvar=0.006, name="EVCS 16 Auxiliary Load")
     #
     # 在节点8添加充电站
-    pp.create_load(net, bus=7, p_mw=17, q_mvar=3.4, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 11", controllable=True)
+    pp.create_load(net, bus=7, p_mw=0.3, q_mvar=0.06, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 11", controllable=True)
     pp.create_load(net, bus=7, p_mw=0.03, q_mvar=0.006, name="EVCS 11 Auxiliary Load")
     #
     # 在节点10添加充电站
-    pp.create_load(net, bus=9, p_mw=17, q_mvar=3.4, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 15", controllable=True)
+    pp.create_load(net, bus=9, p_mw=0.3, q_mvar=0.06, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 15", controllable=True)
     pp.create_load(net, bus=9, p_mw=0.03, q_mvar=0.006, name="EVCS 15 Auxiliary Load")
     #
     # 在节点14添加充电站
-    pp.create_load(net, bus=13, p_mw=17, q_mvar=3.4, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 20", controllable=True)
+    pp.create_load(net, bus=13, p_mw=None, q_mvar=None, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 20", controllable=True)
     pp.create_load(net, bus=13, p_mw=0.03, q_mvar=0.006, name="EVCS 20 Auxiliary Load")
     #
     for gen_idx in net.gen.index:
@@ -67,7 +67,6 @@ def test_load_increase(net):
 
 
 def run(net, max_iter = 10):
-    print("114514")
     pp.diagnostic(net)
     pp.runopp(net, max_iteration=max_iter)
 
@@ -81,6 +80,10 @@ def update_load(net, total_load, time_slot):
             # 更新负载
             net.load.at[load.Index, 'p_mw'] = avg_power_mw
             net.load.at[load.Index, 'q_mvar'] = avg_power_mw * 0.2
+            net.load.at[load.Index, 'min_p_mw'] = avg_power_mw
+            net.load.at[load.Index, 'max_p_mw'] = avg_power_mw * 1.5
+            net.load.at[load.Index, 'min_q_mvar'] = avg_power_mw * 0.2
+            net.load.at[load.Index, 'max_q_mvar'] = avg_power_mw * 0.3
             print('p_mw')
             print(load.Index, avg_power_mw)
 

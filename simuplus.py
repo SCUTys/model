@@ -8,6 +8,7 @@ import loaddata as ld
 import random
 import csv
 import ast
+import matplotlib.pyplot as plt
 import sys
 import json
 
@@ -31,6 +32,7 @@ k_list = {}
 G = None
 k = 3
 rate = 0.5
+
 
 
 class PathProcessor:
@@ -200,7 +202,8 @@ if __name__ == "__main__":
     v_index = 0
     pdn = PDNplus.create_ieee14()
     pdn_result = []
-    for i in range(1, 8 * 3):
+    tn_result = []
+    for i in range(1, 20 * 3):
         # if all_log:
         print(f"主循环 {i}")
         for vehicle in center.vehicles:
@@ -231,19 +234,22 @@ if __name__ == "__main__":
             charge_num = int(batch_size * rate)
             charge_v = []
 
-
-            total_charge_cost = {}
-            for cs in center.charge_stations.values():
-                total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
-                cs.cost = 0
-            PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
-            PDNplus.run(pdn, 30)
-            pdn_loss = PDNplus.calculate_loss(pdn, 140)
-            pdn_result.append(pdn_loss)
-            print(pdn_loss)
-            print(555)
-            print(center.calculate_lost())
-            print(555)
+            if i != 1:
+                total_charge_cost = {}
+                for cs in center.charge_stations.values():
+                    total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
+                    cs.cost = 0
+                print(total_charge_cost)
+                print(66666)
+                PDNplus.update_load(pdn, total_charge_cost, 3 * T / 60)
+                PDNplus.run(pdn, 300)
+                pdn_loss = PDNplus.calculate_loss(pdn, 140)
+                pdn_result.append(pdn_loss)
+                print(pdn_loss)
+                print(555)
+                tn_result.append(center.calculate_lost())
+                print(center.calculate_lost())
+                print(555)
 
             for (O, D) in OD:
                 choice = path_results[(O, D)][0]
@@ -338,8 +344,8 @@ if __name__ == "__main__":
 
     print("dispatch list")
     print(TNplus.dispatch_list)
-    print("path results")
-    print(path_results)
+    # print("path results")
+    # print(path_results)
     # if all_log:
     v = []
     for vehicle in center.vehicles:
@@ -357,10 +363,45 @@ if __name__ == "__main__":
     for cs in center.charge_stations.values():
         print(f"{cs.id} : {cs.capacity}")
         print(f"{cs.id} : {cs.dispatch}")
+        print(f"{cs.id} : {len(cs.queue[120])}")
         print(f"{cs.id} : {cs.queue}")
+        print(f"{cs.id} : {len(cs.charge[120])}")
         print(f"{cs.id} : {cs.charge}")
         print(' ')
+
+    print(pdn_result)
 
     print(f"道路行驶车辆{sum2}")
     print(f"已到达车辆{sum1}")
     print(f"总共流统计{sum1 + sum2}")
+
+
+
+    # 假设x轴为序号
+    x = list(i * 3 for i in range(1, len(pdn_result) + 1))
+
+    # 创建一个新的图形
+    plt.figure()
+
+    # 绘制 pdn_result 数据
+    plt.plot(x, pdn_result, label='pdn_result', marker='o')
+
+
+    # 添加图例
+    plt.legend()
+
+    # 显示图形
+    plt.show()
+
+    # 创建一个新的图形
+    plt.figure()
+
+    # 绘制 tn_result 数据
+    plt.plot(x, tn_result, label='tn_result', marker='s')
+
+    # 添加图例
+    plt.legend()
+
+    # 显示图形
+    plt.show()
+
