@@ -1,3 +1,4 @@
+import numpy as np
 import pandapower as pp
 from pandapower import networks as pn
 from pandapower.networks import case14
@@ -16,9 +17,9 @@ def create_ieee14():
     pp.create_load(net, bus=3, p_mw=0.3, q_mvar=0.06, min_p_mw=1, min_q_mvar=0.2, max_p_mw=1., max_q_mvar=3.4, name="EVCS 5", controllable=True)
     pp.create_load(net, bus=3, p_mw=0.03, q_mvar=0.006, name="EVCS 5 Auxiliary Load")
     #
-    # 在节点7添加充电站
-    pp.create_load(net, bus=6, p_mw=0.3, q_mvar=0.06, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 16", controllable=True)
-    pp.create_load(net, bus=6, p_mw=0.03, q_mvar=0.006, name="EVCS 16 Auxiliary Load")
+    # 在节点7添加充电站(这里tm原来名字忘了改，13写成16了，如果之后跑着跑着不收敛了就改回来)
+    pp.create_load(net, bus=6, p_mw=0.3, q_mvar=0.06, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 13", controllable=True)
+    pp.create_load(net, bus=6, p_mw=0.03, q_mvar=0.006, name="EVCS 13 Auxiliary Load")
     #
     # 在节点8添加充电站
     pp.create_load(net, bus=7, p_mw=0.3, q_mvar=0.06, min_p_mw=1, min_q_mvar=0.2, max_p_mw=17, max_q_mvar=3.4, name="EVCS 11", controllable=True)
@@ -34,7 +35,7 @@ def create_ieee14():
     #
     for gen_idx in net.gen.index:
         net.poly_cost.drop(net.poly_cost[net.poly_cost.element == gen_idx].index, inplace=True)
-        pp.create_poly_cost(net, element=gen_idx, et="gen", cp1_eur_per_mw=15, cp2_eur_per_mw2=0.03, cp0_eur=0)
+        pp.create_poly_cost(net, element=gen_idx, et="gen", cp1_eur_per_mw=150, cp2_eur_per_mw2=0.03, cp0_eur=0)
 
     net.bus['max_vm_pu'] = 1.2
     #
@@ -69,6 +70,12 @@ def test_load_increase(net):
 def run(net, max_iter = 10):
     pp.diagnostic(net)
     pp.runopp(net, max_iteration=max_iter)
+    if 'lam_p' in net.res_bus.columns:
+        print("OPF calculation was successful.")
+        lmp = net.res_bus['lam_p']
+        print("LMP values:", lmp)
+    else:
+        print("OPF calculation did not produce LMP values.")
 
 
 def update_load(net, total_load, time_slot):
@@ -78,12 +85,12 @@ def update_load(net, total_load, time_slot):
             # 计算平均功率
             avg_power_mw = total_load[load.name] / time_slot
             # 更新负载
-            net.load.at[load.Index, 'p_mw'] = avg_power_mw
-            net.load.at[load.Index, 'q_mvar'] = avg_power_mw * 0.2
-            net.load.at[load.Index, 'min_p_mw'] = avg_power_mw
-            net.load.at[load.Index, 'max_p_mw'] = avg_power_mw * 1.5
-            net.load.at[load.Index, 'min_q_mvar'] = avg_power_mw * 0.2
-            net.load.at[load.Index, 'max_q_mvar'] = avg_power_mw * 0.3
+            net.load.at[load.Index, 'p_mw'] = np.float64(avg_power_mw)
+            net.load.at[load.Index, 'q_mvar'] = np.float64(avg_power_mw * 0.2)
+            net.load.at[load.Index, 'min_p_mw'] = np.float64(avg_power_mw)
+            net.load.at[load.Index, 'max_p_mw'] = np.float64(avg_power_mw * 1.5)
+            net.load.at[load.Index, 'min_q_mvar'] = np.float64(avg_power_mw * 0.2)
+            net.load.at[load.Index, 'max_q_mvar'] = np.float64(avg_power_mw * 0.3)
             print('p_mw')
             print(load.Index, avg_power_mw)
 
