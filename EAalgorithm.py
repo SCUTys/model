@@ -2,17 +2,16 @@ import numpy as np
 import simuplus
 import math
 import random
-from concurrent.futures import ThreadPoolExecutor
+import heapq
 import multiprocessing as mp
+import networkx as nx
 import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import ProcessPoolExecutor
 import pandapower as pp
-# from TNplus import DispatchCenter
+
 
 #NSGA2编码：对每辆车预处理车辆没电前可到达并且O-站和站-D的距离之和最短的2^k个站点，排序后按照二进制编码其下标，每辆车的编码长度为k，总长就是车数*k
-#
-#
 #
 
 def process_od_length(real_path_results):
@@ -23,7 +22,10 @@ def process_od_length(real_path_results):
         for i in range(len(result) - 1):
             sum += (result[i][1] + result[i][2]) / (i + 1)
             div += 1 / (i + 1)
-        sum /= div
+        if div > 0:
+            sum /= div
+        else:
+            sum = result[0][1] + result[0][2]
         od_length[od] = sum
         od_length[(od[0], od[0])] = 0
         od_length[(od[1], od[1])] = 0
@@ -34,7 +36,10 @@ def process_od_length(real_path_results):
         for i in range(len(result) - 1):
             sum += result[i][2] / (i + 1)
             div += 1 / (i + 1)
-        sum /= div
+        if div > 0:
+            sum /= div
+        else:
+            sum = result[0][2]
         od_wait[od] = sum
     return od_length, od_wait
 
@@ -204,24 +209,31 @@ def dispatch_cs_nsga2(center, real_path_results, charge_v, charge_od, num_popula
         last_front_population = []
         new_population = []
         len_cnt = 0
-        for kk in range(0, len(front)):
-            if len_cnt == num_population:
-                break
-            len_cnt += len(front[kk])
-            if len_cnt > num_population:
-                for id in front[kk]:
-                    last_front_population.append(population[id])
-                break
-            else:
-                for id in front[kk]:
-                    new_population.append(population[id])
-        if last_front_population:
-            ranking = crowding_distance_assignment(last_front_population, math.ceil(math.log2(num_cs)), cs_for_choice, od_length, od_wait, charge_od, charge_v, cs_bus, lmp_dict, center, cs)
-            last_front_population = sorted(last_front_population, key=lambda x: ranking[last_front_population.index(x)])
-            new_population += last_front_population[:num_population - len(new_population)]
-        population = new_population
+        if i < max_iter - 1:
+            for kk in range(0, len(front)):
+                if len_cnt == num_population:
+                    break
+                len_cnt += len(front[kk])
+                if len_cnt > num_population:
+                    for id in front[kk]:
+                        last_front_population.append(population[id])
+                    break
+                else:
+                    for id in front[kk]:
+                        new_population.append(population[id])
+            if last_front_population:
+                ranking = crowding_distance_assignment(last_front_population, math.ceil(math.log2(num_cs)), cs_for_choice, od_length, od_wait, charge_od, charge_v, cs_bus, lmp_dict, center, cs)
+                last_front_population = sorted(last_front_population, key=lambda x: ranking[last_front_population.index(x)])
+                new_population += last_front_population[:num_population - len(new_population)]
+            population = new_population
+        else:
+            final_choice = front[0]
+            for id in final_choice:
+                new_population.append(population[id])
+            new_population = sorted(new_population, key=lambda x: f1(x, math.ceil(math.log2(num_cs)), cs_for_choice, od_length, charge_od))
+            population = new_population
 
-    best_solution = population[0]
+    best_solution = population[-1]
     bit_per_vehicle = math.ceil(math.log2(num_cs))
     real_cs_ids = []
     for i in range(len(charge_v)):
@@ -231,270 +243,6 @@ def dispatch_cs_nsga2(center, real_path_results, charge_v, charge_od, num_popula
         real_cs_ids.append(cs_for_choice[i][cs_index])
 
     return population[0], cs_for_choice, real_cs_ids
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# def dispatch_cs_nsga2(center, real_path_results, charge_v, charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter):
-#
-#     def process_od_length():
-#         od_length = {}
-#         for od, result in real_path_results.items():
-#             if od[0] == od[1]: continue
-#             sum = div = 0
-#             # print("result", result)
-#             for i in range(len(result) - 1):
-#                 sum += (result[i][1] +  result[i][2]) / (i + 1)
-#                 div += 1 / (i + 1)
-#             sum /= div
-#             od_length[od] = sum
-#             od_length[(od[0], od[0])] = 0
-#             od_length[(od[1], od[1])] = 0
-#
-#         od_wait = {}
-#         for od, result in real_path_results.items():
-#             sum = div = 0
-#             for i in range(len(result) - 1):
-#                 sum += result[i][2] / (i + 1)
-#                 div += 1 / (i + 1)
-#             sum /= div
-#             od_wait[od] = sum
-#         return od_length, od_wait
-#
-#     def process_cs(od_length):
-#         cs_for_choice = []
-#         for od in charge_od:
-#             o, d = od
-#             cs.sort(key=lambda x: od_length[(o, x)] + od_length[(x, d)])
-#             cs_for_choice.append(cs[:num_cs])
-#         return cs_for_choice
-#
-#     def initialize(num_v):
-#         bit_per_vehicle = math.ceil(math.log2(num_cs))
-#         population = []
-#         for i in range(num_population):
-#             sol = []
-#             for j in range(num_v * bit_per_vehicle):
-#                 cs = random.randint(0, 1)
-#                 sol.append(cs)
-#             population.append(sol)
-#         return population
-#
-#
-#
-#     def f1(sol, bit_per_vehicle, cs_for_choice, od_length, beta=1):
-#         cost = 0
-#         for i in range(int(len(sol) / bit_per_vehicle)):
-#             # print("在f1")
-#             # print(len(sol), bit_per_vehicle)
-#             cs_index = 0
-#             for j in range(bit_per_vehicle):
-#                 cs_index += sol[i * bit_per_vehicle + j] * 2 ** j
-#             cs_id = cs_for_choice[i][cs_index]
-#             o, d = charge_od[i]
-#             cost += od_length[(o, cs_id)] + od_length[(cs_id, d)] * beta
-#         return cost
-#
-#     def f2(sol, bit_per_vehicle, cs_for_choice, od_length, od_wait):
-#         lmp = {}
-#         bus_node = {}
-#         for id in cs_bus:
-#             lmp[id] = lmp_dict[id]
-#         for i in range(len(cs)):
-#             bus_node[cs[i]] = cs_bus[i]
-#         sum_value= sum(lmp.values())
-#         for value in lmp.values():
-#             value /= sum_value
-#
-#         cost = 0
-#         # print("lmp", lmp)
-#         for i in range(int(len(sol) / bit_per_vehicle)):
-#             v_id = charge_v[i]
-#             vehicle = center.vehicles[v_id]
-#             cs_index = 0
-#             for j in range(bit_per_vehicle):
-#                 cs_index += sol[i * bit_per_vehicle + j] * 2 ** j
-#             cs_id = cs_for_choice[i][cs_index]
-#             o, d = charge_od[i]
-#             if cs_id == o:
-#                 cost += lmp[bus_node[cs_id]] * (vehicle.Emax - vehicle.E)
-#             else:
-#                 cost += lmp[bus_node[cs_id]] * (vehicle.Emax - vehicle.E - od_length[(o, cs_id)] * vehicle.Edrive - od_wait[(o, cs_id)] * vehicle.Ewait)
-#
-#         return cost
-#
-#     def single_point_crossover(parent1, parent2, bit_per_gene):
-#         num_gene = len(parent1) / bit_per_gene
-#         point = random.randint(1, num_gene - 1) * bit_per_gene
-#         child1 = parent1[:point] + parent2[point:]
-#         child2 = parent2[:point] + parent1[point:]
-#         return child1, child2
-#
-#     def bitwise_mutation(sol):
-#         for i in range(len(sol)):
-#             if random.random() < 1 / len(sol):
-#                 sol[i] = 1 - sol[i]
-#         return sol
-#
-#     def compare_individuals(args):
-#         i, j, population, bit_per_vehicle, cs_for_choice, od_length, od_wait = args
-#         sol = population[i]
-#         sol_f1 = f1(sol, bit_per_vehicle, cs_for_choice, od_length)
-#         sol_f2 = f2(sol, bit_per_vehicle, cs_for_choice, od_length, od_wait)
-#         cmp_f1 = f1(population[j], bit_per_vehicle, cs_for_choice, od_length)
-#         cmp_f2 = f2(population[j], bit_per_vehicle, cs_for_choice, od_length, od_wait)
-#
-#         if (sol_f1 < cmp_f1 and sol_f2 < cmp_f2) or (sol_f1 <= cmp_f1 and sol_f2 < cmp_f2) or (
-#                 sol_f1 < cmp_f1 and sol_f2 <= cmp_f2):
-#
-#             return (i, j)
-#         elif (sol_f1 > cmp_f1 and sol_f2 > cmp_f2) or (sol_f1 >= cmp_f1 and sol_f2 > cmp_f2) or (
-#                 sol_f1 > cmp_f1 and sol_f2 >= cmp_f2):
-#             return (j, i)
-#         return None
-#
-#     def fast_non_dominated_sorting(population, bit_per_vehicle, cs_for_choice, od_length, od_wait, max_workers=4):
-#         num = len(population)
-#         S = [[] for _ in range(num)]
-#         n = [0] * num
-#         rank = [0] * num
-#         front = [[]]
-#
-#         def compare_individuals(i, j):
-#             sol = population[i]
-#             sol_f1 = f1(sol, bit_per_vehicle, cs_for_choice, od_length)
-#             sol_f2 = f2(sol, bit_per_vehicle, cs_for_choice, od_length, od_wait)
-#             cmp_f1 = f1(population[j], bit_per_vehicle, cs_for_choice, od_length)
-#             cmp_f2 = f2(population[j], bit_per_vehicle, cs_for_choice, od_length, od_wait)
-#
-#             if (sol_f1 < cmp_f1 and sol_f2 < cmp_f2) or (sol_f1 <= cmp_f1 and sol_f2 < cmp_f2) or (
-#                     sol_f1 < cmp_f1 and sol_f2 <= cmp_f2):
-#                 print(f"{i} dominates {j}")
-#                 return (i, j)
-#             elif (sol_f1 > cmp_f1 and sol_f2 > cmp_f2) or (sol_f1 >= cmp_f1 and sol_f2 > cmp_f2) or (
-#                     sol_f1 > cmp_f1 and sol_f2 >= cmp_f2):
-#                 print(f"{j} dominates {i}")
-#                 return (j, i)
-#             print(f"None dominates {i} and {j}")
-#             return None
-#
-#         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-#             futures = []
-#             for i in range(num - 1):
-#                 for j in range(i + 1, num):
-#                     futures.append(executor.submit(compare_individuals, i, j))
-#
-#             for future in futures:
-#                 result = future.result()
-#                 if result:
-#                     i, j = result
-#                     S[i].append(j)
-#                     n[j] += 1
-#
-#         for i in range(num):
-#             if n[i] == 0:
-#                 front[0].append(i)
-#                 rank[i] = 1
-#
-#         f = 0
-#         while front[f]:
-#             Q = []
-#             for i in front[f]:
-#                 for j in S[i]:
-#                     n[j] -= 1
-#                     if n[j] == 0:
-#                         Q.append(j)
-#                         rank[j] = f + 1
-#             f += 1
-#             front.append(Q)
-#         print("front", front)
-#         return front
-#
-#
-#     def crowding_distance_assignment(population, bit_per_vehicle, cs_for_choice, od_length, od_wait):
-#         num = len(population)
-#         distance = [0] * (num + 1)
-#
-#         sol1 = population.copy()
-#         sol1 = sorted(sol1, key=lambda x: f1(x,bit_per_vehicle, cs_for_choice, od_length))
-#         distance[0] = distance[num - 1] = math.inf
-#         for i in range(1, num - 1):
-#             distance[i] = (distance[i] + (f1(sol1[i + 1], bit_per_vehicle, cs_for_choice, od_length) - f1(sol1[i - 1], bit_per_vehicle, cs_for_choice, od_length))
-#                                             / (f1(sol1[num - 1], bit_per_vehicle, cs_for_choice, od_length) - f1(sol1[0], bit_per_vehicle, cs_for_choice, od_length)))
-#
-#         sol2 = population.copy()
-#         sol2 = sorted(sol2, key=lambda x: f2(x, bit_per_vehicle, cs_for_choice, od_length, od_wait))
-#         distance[0] = distance[num - 1] = math.inf
-#         for i in range(1, num - 1):
-#             distance[i] = (distance[i] + (f2(sol2[i + 1], bit_per_vehicle, cs_for_choice, od_length, od_wait) - f2(sol2[i - 1], bit_per_vehicle, cs_for_choice, od_length, od_wait))
-#                            / (f2(sol2[num - 1], bit_per_vehicle, cs_for_choice, od_length, od_wait) - f2(sol2[0], bit_per_vehicle, cs_for_choice, od_length, od_wait)))
-#
-#         return distance
-#
-#     od_length, od_wait = process_od_length()
-#     cs_for_choice = process_cs(od_length)
-#     population = initialize(len(charge_v))
-#     print("nsga开始进化")
-#     for i in range(max_iter):
-#         print("第", i, "代")
-#         for j in range(len(population)):
-#             if j % 2 == 0:
-#                 parent1 = population[j]
-#                 parent2 = population[j + 1]
-#                 child1, child2 = single_point_crossover(parent1, parent2, math.ceil(math.log2(num_cs)))
-#                 population.append(child1)
-#                 population.append(child2)
-#         for j in range(len(population)):
-#             if random.random() < 1 / len(population):
-#                 population[j] = bitwise_mutation(population[j])
-#         front = fast_non_dominated_sorting(population, math.ceil(math.log2(num_cs)), cs_for_choice, od_length, od_wait)
-#         last_front_population = []
-#         new_population = []
-#         len_cnt = 0
-#         for kk in range(0, len(front)):
-#             if len_cnt == num_population:
-#                 break
-#             len_cnt += len(front[kk])
-#             if len_cnt > num_population:
-#                 for id in front[kk]:
-#                     last_front_population.append(population[id])
-#                 break
-#             else:
-#                 for id in front[kk]:
-#                     new_population.append(population[id])
-#         if last_front_population:
-#             ranking = crowding_distance_assignment(last_front_population, math.ceil(math.log2(num_cs)), cs_for_choice, od_length, od_wait)
-#             last_front_population = sorted(last_front_population, key=lambda x: ranking[last_front_population.index(x)])
-#             new_population += last_front_population[:num_population - len(new_population)]
-#         population = new_population
-#
-#     return population[0], cs_for_choice
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -692,3 +440,468 @@ def generate_shortest_actual_paths(solution, charge_od, real_path_results, cs_fo
         else:
             actual_paths.append(path1 + path2[1:])
     return dispatched_cs, actual_paths
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class PriorityQueue:
+    def __init__(self):
+        self.queue = []
+        self.index = 0
+
+    def push(self, key, value):
+        # Use a tuple (value, index, key) to ensure the queue is sorted by value
+        heapq.heappush(self.queue, [value, key])
+        self.index += 1
+
+    def pop(self):
+        # Pop the smallest value and return the entire tuple (value, index, key)
+        if self.index > 0:
+            self.index -= 1
+            return heapq.heappop(self.queue)
+        else:
+            return None
+
+    def is_empty(self):
+        return len(self.queue) == 0
+
+    def top(self):
+        # Return the smallest value without removing it
+        if self.index > 0:
+            return self.queue[0]
+        else:
+            return None
+
+
+def dijkstra_with_travel_time(graph, start, end, start_time, time_constraints):
+    """
+    改进后的Dijkstra算法，支持多个不同时段的通行限制。
+
+    参数:
+    - graph: 图的邻接表表示 {'A': {'B': travel_time, ...}, ...}
+    - start: 起始节点
+    - end: 终止节点
+    - start_time: 起始时间
+    - time_constraints: 时间窗口限制，格式 {('u', 'v'): [(start_time1, end_time1), (start_time2, end_time2), ...]}
+
+    返回:
+    - 最短路径和总通行时长，如果没有路径，返回 None。
+    """
+    # 初始化
+
+    shortest_paths = {node: (float('inf'), None, None) for node in graph}  # (最短距离, 前驱节点, 到达时间)
+    shortest_paths[start] = (0, None, start_time)  # 起点
+    priority_queue = [(0, start, start_time)]  # (通行时间, 当前节点, 当前时间)
+
+    while priority_queue:
+        current_distance, current_node, current_time = heapq.heappop(priority_queue)
+
+        # 如果当前节点是终点，返回路径
+        if current_node == end:
+            path = []
+            while current_node:
+                path.append(current_node)
+                current_node = shortest_paths[current_node][1]
+            return path[::-1], current_distance
+
+        # 遍历相邻节点
+        for neighbor, travel_time in graph[current_node].items():
+            next_time = current_time + travel_time  # 到达邻居节点的时间
+
+            # 检查多个时间窗口限制
+            if (current_node, neighbor) in time_constraints:
+                restricted_windows = time_constraints[(current_node, neighbor)]
+                is_restricted = False
+                for restricted_start, restricted_end in restricted_windows:
+                    # 检查进入和离开时间
+                    if not (next_time <= restricted_start or current_time >= restricted_end):
+                        is_restricted = True
+                        break
+                if is_restricted:
+                    continue  # 如果受到限制，跳过该边
+
+            # 计算新的通行时间
+            distance = current_distance + travel_time
+            if distance < shortest_paths[neighbor][0]:  # 找到更短路径
+                shortest_paths[neighbor] = (distance, current_node, next_time)  # 更新路径信息
+                heapq.heappush(priority_queue, (distance, neighbor, next_time))
+
+    print(start, end, start_time, time_constraints)
+    return None, float('inf')  # 如果没有路径满足条件
+
+
+def dijkstra_plus(graph, start, stopover, end, start_time, time_constraints):
+    """
+    支持起点、经停点和终点的路径规划，带时间窗口限制。
+
+    参数:
+    - graph: 图的邻接表表示，包含边的通行时长 {'A': {'B': travel_time, ...}, ...}
+    - start: 起始节点
+    - stopover: 经停点
+    - end: 终止节点
+    - start_time: 起始时间
+    - time_constraints: 时间窗口限制，格式为 {('u', 'v'): (start_time, end_time)}
+
+    返回:
+    - 总路径和通行时长，如果没有可行路径，返回 None。
+    """
+    # 阶段1: 从起点到经停点
+    path1, travel_time1 = dijkstra_with_travel_time(graph, start, stopover, start_time, time_constraints)
+    if not path1:
+        return None, float('inf')  # 如果第一阶段不可达，则直接返回
+
+    # 阶段2: 从经停点到终点（起始时间为到达经停点的时间）
+    arrival_time_at_stopover = start_time + travel_time1
+    path2, travel_time2 = dijkstra_with_travel_time(graph, stopover, end, arrival_time_at_stopover, time_constraints)
+    if not path2:
+        return None, float('inf')  # 如果第二阶段不可达，则直接返回
+
+    # 合并两段路径
+    total_path = path1 + path2[1:]  # 避免重复经停点
+    total_travel_time = travel_time1 + travel_time2
+
+    return total_path, total_travel_time
+
+
+def dispatch_CCRP(t, center, OD_ratio, cs):
+
+    # Initialize the traffic flow table
+    traffic_flow = center.edge_timely_estimated_load.copy()
+    for flow_set in traffic_flow.values():
+        for flow in flow_set:
+            flow[0] = round(flow[0])
+            flow[1] = math.ceil(flow[1])
+
+    demand = OD_ratio.copy()
+
+    Graph = {}
+    edge_od_id = {}
+    for edge in center.edges.values():
+        edge_od_id[(edge.origin, edge.destination)] = edge.id
+        if edge.origin not in Graph.keys():
+            Graph[edge.origin] = {}
+        Graph[edge.origin][edge.destination] = round(edge.calculate_time())
+
+    time_constraints = {}
+    for (O, D), flow in traffic_flow.items():
+        for i in range(t, len(flow)):
+            if flow[i][0] >= flow[i][1]:
+                if (O, D) not in time_constraints.keys():
+                    time_constraints[(O, D)] = []
+                time_constraints[(O, D)].append((i, i + center.edges[edge_od_id[(O, D)]].length))
+
+
+    # Initialize the result dictionary
+    dispatch_result = {}
+
+    # Dispatch the vehicles
+    current_time = t
+    while any(demand.values()):
+        fastest_time = float('inf')
+        wait = -1
+        fastest_path = None
+        dispatch_od = None
+        dispatch_cs = -1
+        for (O, D), count in demand.items():
+            if count == 0:
+                continue
+            for cs_id in cs:
+                for drive_time in range(current_time, current_time + 8): #这里6是考虑到每条道路的长短随便设的
+                    total_path, total_travel_time = dijkstra_plus(Graph, O, cs_id, D, drive_time, time_constraints)
+                    if total_travel_time + drive_time - current_time < fastest_time:
+                        fastest_time = total_travel_time + drive_time - current_time
+                        fastest_path = total_path
+                        dispatch_od = (O, D)
+                        dispatch_cs = cs_id
+                        wait = drive_time - current_time
+
+        if fastest_path:
+            min_cap = float('inf')
+            occupancy = []
+            occupancy_st = -1
+            occupancy_en = -1
+            occupancy_od = None
+            time_stamp = wait + current_time
+            for p in range(len(fastest_path) - 1):
+                edge_o = fastest_path[p]
+                edge_d = fastest_path[p + 1]
+                time_interval = Graph[edge_o][edge_d]
+                for tt in range(time_stamp, min(time_stamp + time_interval, 60)):
+                    cap = traffic_flow[(edge_o, edge_d)][time_stamp][1] - traffic_flow[(edge_o, edge_d)][time_stamp][0]
+                    if cap <= min_cap:
+                        min_cap = cap
+                        occupancy_st = time_stamp
+                        occupancy_en = time_stamp + time_interval
+                        occupancy_od = (edge_o, edge_d)
+                        if cap < min_cap:
+                            occupancy.clear()
+                        occupancy.append([occupancy_od, occupancy_st, occupancy_en])
+
+
+                time_stamp += time_interval
+                if time_stamp > 60: break
+
+            current = current_time
+            min_cap = min(min_cap, demand[dispatch_od])
+            for p in range(len(fastest_path) - 1):
+                edge_o = fastest_path[p]
+                edge_d = fastest_path[p + 1]
+                for time in range(current, min(current + Graph[edge_o][edge_d], 60)):
+                    traffic_flow[(edge_o, edge_d)][current][0] += min_cap
+                current += Graph[edge_o][edge_d]
+                if current > 60: break
+
+            for [od, st, en] in occupancy:
+                if od not in time_constraints.keys():
+                    time_constraints[od] = []
+                if (st, en) not in time_constraints[od]:
+                    time_constraints[od].append((st, en))
+
+            demand[dispatch_od] -= min_cap
+
+            if current_time + wait not in dispatch_result.keys():
+                dispatch_result[current_time + wait] = {}
+            dispatch_result[current_time + wait][dispatch_od] = (min_cap, dispatch_cs, fastest_path)
+
+            print(demand, f"dispatch {dispatch_od} to {dispatch_cs} with {min_cap} vehicles at {current_time + wait}， path{fastest_path}")
+
+        else:
+            current_time += 8
+
+    return dispatch_result, traffic_flow
+
+
+def dispatch_CCRPP(t, center, OD_ratio, cs):
+
+    def dispatch_flow(inform, current_time):
+        [O, D, cs_id, path, wait] = inform
+        min_cap = float('inf')
+        occupancy = []
+        occupancy_st = -1
+        occupancy_en = -1
+        occupancy_od = None
+        time_stamp = wait + current_time
+        for p in range(len(fastest_path) - 1):
+            edge_o = fastest_path[p]
+            edge_d = fastest_path[p + 1]
+            time_interval = Graph[edge_o][edge_d]
+            for tt in range(time_stamp, min(time_stamp + time_interval, 60)):
+                cap = traffic_flow[(edge_o, edge_d)][time_stamp][1] - traffic_flow[(edge_o, edge_d)][time_stamp][0]
+                if cap <= min_cap:
+                    min_cap = cap
+                    occupancy_st = time_stamp
+                    occupancy_en = time_stamp + time_interval
+                    occupancy_od = (edge_o, edge_d)
+                    if cap < min_cap:
+                        occupancy.clear()
+                    occupancy.append([occupancy_od, occupancy_st, occupancy_en])
+
+            time_stamp += time_interval
+            if time_stamp > 60: break
+
+        current = current_time
+        min_cap = min(min_cap, demand[(O, D)])
+        for p in range(len(fastest_path) - 1):
+            edge_o = fastest_path[p]
+            edge_d = fastest_path[p + 1]
+            for time in range(current, min(current + Graph[edge_o][edge_d], 60)):
+                traffic_flow[(edge_o, edge_d)][current][0] += min_cap
+            current += Graph[edge_o][edge_d]
+            if current > 60: break
+
+        for [od, st, en] in occupancy:
+            if od not in time_constraints.keys():
+                time_constraints[od] = []
+            time_constraints[od].append((st, en))
+
+        demand[(O, D)] -= min_cap
+
+        if current_time + wait not in dispatch_result.keys():
+            dispatch_result[current_time + wait] = {}
+        dispatch_result[current_time + wait][(O, D)] = (min_cap, cs_id, path)
+
+
+
+    # Initialize the traffic flow table
+    traffic_flow = center.edge_timely_estimated_load.copy()
+    for flow_set in traffic_flow.values():
+        for flow in flow_set:
+            flow[0] = round(flow[0])
+            flow[1] = math.ceil(flow[1])
+
+    demand = OD_ratio.copy()
+
+    Graph = {}
+    edge_od_id = {}
+    for edge in center.edges.values():
+        edge_od_id[(edge.origin, edge.destination)] = edge.id
+        if edge.origin not in Graph.keys():
+            Graph[edge.origin] = {}
+        Graph[edge.origin][edge.destination] = round(edge.calculate_time())
+
+    time_constraints = {}
+    for (O, D), flow in traffic_flow.items():
+        for i in range(t, len(flow)):
+            if flow[i][0] >= flow[i][1]:
+                if (O, D) not in time_constraints.keys():
+                    time_constraints[(O, D)] = []
+                time_constraints[(O, D)].append((i, i + center.edges[edge_od_id[(O, D)]].length))
+
+
+    RQ = PriorityQueue()
+    Pre_RQ = PriorityQueue()
+
+    # Initialize the result dictionary
+    dispatch_result = {}
+    current_time = t
+    for (O, D), count in demand.items():
+        fastest_time = float('inf')
+        fastest_path = None
+        fastest_cs = -1
+        if count == 0:
+            continue
+        for cs_id in cs:
+            total_path, total_travel_time = dijkstra_plus(Graph, O, cs_id, D, current_time, {})
+            if total_travel_time  < fastest_time:
+                fastest_time = total_travel_time
+                fastest_path = total_path
+                fastest_cs = cs_id
+        if fastest_path:
+            Pre_RQ.push([O, D, fastest_cs, fastest_path, 0], fastest_time)
+
+    (k, v) = Pre_RQ.pop()
+    RQ.push(k, v)
+
+    while any(demand.values()):
+        if not RQ.top():
+            PP = Pre_RQ.pop()
+            RQ.push(PP[0], PP[1])
+        Q1 = RQ.top()
+        P1 = Pre_RQ.top()
+        if not P1:
+            P1 = [[-1, -1, -1, [], -1], float('inf')]
+        if P1[1] < Q1[1]:
+            Pre_RQ.pop()
+            (O, D, cs_id, path, wait) = P1[0]
+            check_path, check_time = dijkstra_plus(Graph, O, cs_id, D, path, wait)
+            if check_time == P1:
+                RQ.push(P1[0], P1[1])
+            else:
+                P1[1] = check_time
+                Pre_RQ.push(P1[0], P1[1])
+
+        else:
+            RQ.pop()
+            O = Q1[0][0]
+            D = Q1[0][1]
+            dispatch_flow(Q1[0], current_time)
+
+            Q2 = RQ.top()
+            PQ = Q2 if Q2 else P1
+            while Q1[1] <= PQ[1] and demand[(O, D)] > 0:
+                Q1_time = float('inf')
+                Q1_path = None
+                Q1_cs = -1
+                Q1_wait = 0
+                for cs_id in cs:
+                    for drive_time in range(current_time, current_time + 6):  # 这里6是考虑到每条道路的长短随便设的
+                        total_path, total_travel_time = dijkstra_plus(Graph, O, cs_id, D, drive_time,
+                                                                      time_constraints)
+                        if total_travel_time + drive_time - current_time < Q1_time:
+                            Q1_time = total_travel_time + drive_time - current_time
+                            Q1_path = total_path
+                            Q1_cs = cs_id
+                            Q1_wait = drive_time - current_time
+                Q1[0] = [O, D, Q1_cs, Q1_path, Q1_wait]
+                Q1[1] = Q1_time
+                if Q1_path:
+                    dispatch_flow(Q1[0], current_time)
+            if demand[(O, D)] > 0:
+                if Q2:
+                    Pre_RQ.push(Q1[0], Q1[1])
+                else:
+                    RQ.push(Q1[0], Q1[1])
+
+    return dispatch_result, traffic_flow
+
+
+def update_center_for_heuristic(center, dispatch_result, current_time, charge_v):
+    #dispatch_result[current_time + wait][(O, D)] = (min_cap, cs_id, path)
+    vehicle_ids = {}
+    index = 0
+    for vehicle_id in charge_v:
+        vehicle = center.vehicles[vehicle_id]
+        O = vehicle.origin
+        D = vehicle.destination
+        if (O, D) not in vehicle_ids.keys():
+            vehicle_ids[(O, D)] = []
+        vehicle_ids[(O, D)].append(vehicle_id)
+
+    edge_od_id = {}
+    for edge in center.edges.values():
+        edge_od_id[(edge.origin, edge.destination)] = edge.id
+
+    for drive_time in dispatch_result.keys():
+        for (O, D), (min_cap, cs_id, path) in dispatch_result[drive_time].items():
+            cnt = 0
+            while cnt < min_cap and vehicle_ids[(O, D)]:
+                vehicle_id = vehicle_ids[(O, D)].pop(0)
+                vehicle = center.vehicles[vehicle_id]
+                vehicle.path = []
+                for i in range(len(path) - 1):
+                    vehicle.path.append(edge_od_id[(path[i], path[i + 1])])
+                vehicle.road = vehicle.path[0]
+                vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
+                vehicle.distance = center.edges[vehicle.road].length
+                vehicle.speed = center.edges[vehicle.road].calculate_drive()
+                vehicle.charge = (cs_id, 120)
+
+                flow_ind = drive_time
+                for path_ind in range(0, len(vehicle.path)):
+                    edge_id = vehicle.path[path_ind]
+                    edge_o = center.edges[edge_id].origin
+                    edge_d = center.edges[edge_id].destination
+                    time_interval = round(center.edges[edge_id].calculate_time())
+                    # print(f"edge_id: {edge_id}, edge_o: {edge_o}, edge_d: {edge_d}, time_interval: {time_interval}")
+                    while time_interval >= 1 and flow_ind <= 60:
+                        center.edge_timely_estimated_load[(edge_o, edge_d)][flow_ind][0] += 1
+                        time_interval -= 1
+                        flow_ind += 1
+
+                if drive_time == current_time:
+                    center.edges[vehicle.road].capacity["all"] = center.solve_tuple(center.edges[vehicle.road].capacity["all"], 1)
+                    center.edges[vehicle.road].capacity["charge"] = center.solve_tuple(center.edges[vehicle.road].capacity["charge"], 1)
+                    center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                    vehicle.drive()
+                else:
+                    vehicle.delay = True
+                    center.delay_vehicles[drive_time].append(vehicle.id)
+
+
+def dispatch_CASPER():
+    return None

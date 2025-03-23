@@ -21,14 +21,14 @@ t = 1  #min
 T = 10  #min
 T_pdn = 3 * T  #min
 roadmap = 'SF'  #目前支持SF、EMA和PY
-od_no = '' #目前支持空字符串、1和2
+od_no = '2' #目前支持空字符串、1和2
 csv_net_path = 'data/' + roadmap + '/' + roadmap + '_net.csv'
 csv_od_path = 'data/' + roadmap + '/' + roadmap + '_od' + od_no +'.csv'
 node = {'SF': 24, 'EMA': 76, 'PY': 167}
 num_nodes = node[roadmap]
-batch_size = 7200
+batch_size = 320000 / 20 #在等额分割时要与实际大小一致
 all_log = False
-OD_from_csv = True
+OD_from_csv = False
 dispatch_list = {}
 k_list = {}
 G = None
@@ -154,6 +154,33 @@ class ODGenerator2:
             od_result.append(od_pairs)
         return od_result
 
+
+class ODgenerator_equal:
+    def __init__(self, file_path, count=20, c_rate=rate):
+        self.file_path = file_path
+        self.count = count
+        self.c_rate = c_rate
+
+    def load(self):
+        df = pd.read_csv(self.file_path, usecols=['O', 'D', 'Ton'])
+        return df
+
+    def distribute_equal_od_pairs(self, df):
+        od_result = []
+        for _ in range(self.count):
+            od_result.append([])
+            for _, row in df.iterrows():
+                O, D, Ton = row['O'], row['D'], row['Ton']
+                for _ in range(int(Ton * self.c_rate / self.count)):
+                    od_result[-1].append([O, D])
+            for _, row in df.iterrows():
+                O, D, Ton = row['O'], row['D'], row['Ton']
+                for _ in range(int(Ton * (1 - self.c_rate) / self.count)):
+                    od_result[-1].append([O, D])
+        print("Equal OD pairs generated")
+        # print("OD pairs: {}".format(od_result))
+        return od_result
+
 def update_edge_ratios(Edges):
     for e in Edges:
         e.update_ratio()
@@ -161,6 +188,10 @@ def update_edge_ratios(Edges):
 def update_node_ratios(Nodes):
     for no in Nodes:
         no.update_ratio()
+        
+        
+        
+
 
 
 
@@ -189,10 +220,14 @@ if __name__ == "__main__":
     # for ODs in OD_results:
     #     random.shuffle(ODs)
 
-    generator2 = ODGenerator2(csv_od_path)
-    data = generator2.load()
-    OD_results = generator2.generate_od_pairs(data)
-    random.shuffle(OD_results)
+    # generator2 = ODGenerator2(csv_od_path)
+    # data = generator2.load()
+    # OD_results = generator2.generate_od_pairs(data)
+    # random.shuffle(OD_results)
+
+    generator = ODgenerator_equal(csv_od_path, count=20)
+    data = generator.load()
+    OD_results = generator.distribute_equal_od_pairs(data)
     print("OD载入完成")
     print(len(OD_results), len(OD_results[0]), len(OD_results[1]), len(OD_results[2]))
 
@@ -226,7 +261,7 @@ if __name__ == "__main__":
     for index, row in edge_data.iterrows():
         origin = int(row['init_node'])
         destination = int(row['term_node'])
-        capacity = int(row['capacity'] / 60 * 3)
+        capacity = int(row['capacity'] * 0.6)
         length = float(row['length'])
         free_flow_time = float(row['free_flow_time'])
         # print(f"edge_id: {edge_id}, origin: {origin}, destination: {destination}, length: {length}, free_flow_time: {free_flow_time}")
@@ -282,6 +317,15 @@ if __name__ == "__main__":
     print("电网建构完成")
     pdn_result = []
     tn_result = []
+
+
+
+    for edge in center.edges.values():
+        print(edge.capacity)
+        center.edge_timely_estimated_load[(edge.origin, edge.destination)] = []
+        for i in range(1, 20 * 3 + 11):
+            center.edge_timely_estimated_load[(edge.origin, edge.destination)].append([0, int(edge.capacity['all'][0] * (1 + 0))])
+
     for i in range(1, 20 * 3):
         # if all_log:
         print(f"主循环 {i}")
@@ -325,15 +369,27 @@ if __name__ == "__main__":
                 print(f"{cs.id} : {cs.charge}")
                 print(' ')
 
-
+        if center.delay_vehicles[i]:
+            for vehicle_id in center.delay_vehicles[i]:
+                vehicle = center.vehicles[vehicle_id]
+                center.vehicles[vehicle_id].delay = False
+                center.edges[vehicle.road].capacity["all"] = center.solve_tuple(
+                    center.edges[vehicle.road].capacity["all"], 1)
+                center.edges[vehicle.road].capacity["charge"] = center.solve_tuple(
+                    center.edges[vehicle.road].capacity["charge"], 1)
+                center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
+                    center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                center.vehicles[vehicle_id].drive()
+            center.delay_vehicles[i].clear()
 
         for vehicle in center.vehicles:
-            if vehicle.charging == False and vehicle.is_wait > 0:
-                vehicle.wait(vehicle.road, vehicle.next_road)
-            elif vehicle.charging:
-                continue
-            elif vehicle.road != -1:
-                vehicle.drive(vehicle.road)
+            if not vehicle.delay:
+                if vehicle.charging == False and vehicle.is_wait > 0:
+                    vehicle.wait(vehicle.road, vehicle.next_road)
+                elif vehicle.charging:
+                    continue
+                elif vehicle.road != -1:
+                    vehicle.drive(vehicle.road)
 
         """
         这里充电站的信息可改成用csv读入
@@ -388,6 +444,9 @@ if __name__ == "__main__":
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
                                                  true_path[0], next,
                                                  true_path, 60, random.randint(48, 54), 0.05, 0.15, 0, {}, 1)  #电能单位为千瓦时
+
+                    center.vehicles.append(new_vehicle)
+
                     if charge_num == 0:
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity["all"], 1)
@@ -395,9 +454,19 @@ if __name__ == "__main__":
                             print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
                         center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity[next], 1)
-                    center.vehicles.append(new_vehicle)
-                    if charge_num == 0:
+                        flow_ind = i
+                        for path_ind in range(0, len(true_path)):
+                            edge_id = true_path[path_ind]
+                            edge_o = center.edges[edge_id].origin
+                            edge_d = center.edges[edge_id].destination
+                            time_interval = round(center.edges[edge_id].calculate_time())
+                            # print(f"edge_id: {edge_id}, edge_o: {edge_o}, edge_d: {edge_d}, time_interval: {time_interval}")
+                            while time_interval >= 1 and flow_ind <= 20 * 3:
+                                center.edge_timely_estimated_load[(edge_o, edge_d)][flow_ind][0] += 1
+                                time_interval -= 1
+                                flow_ind += 1
                         new_vehicle.drive()
+
                     else:
                         charge_num -= 1
                         charge_v.append(v_index)
@@ -427,8 +496,21 @@ if __name__ == "__main__":
                         center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity[next], 1)
                     center.vehicles.append(new_vehicle)
+
                     if charge_num == 0:
+                        flow_ind = i
+                        for path_ind in range(0, len(true_path)):
+                            edge_id = true_path[path_ind]
+                            edge_o = center.edges[edge_id].origin
+                            edge_d = center.edges[edge_id].destination
+                            time_interval = round(center.edges[edge_id].calculate_time())
+                            # print(f"edge_id: {edge_id}, edge_o: {edge_o}, edge_d: {edge_d}, time_interval: {time_interval}")
+                            while time_interval >= 1 and flow_ind <= 60:
+                                center.edge_timely_estimated_load[(edge_o, edge_d)][flow_ind][0] += 1
+                                time_interval -= 1
+                                flow_ind += 1
                         new_vehicle.drive()
+
                     else:
                         charge_num -= 1
                         charge_v.append(v_index)
@@ -469,14 +551,21 @@ if __name__ == "__main__":
             real_path_results = processplus(kkk_list, wait_times_list, k, center)
             for node in center.nodes.values():
                 real_path_results[(node.id, node.id)] = [([], 0, 0)]
+            for (o, d), result in path_results.items():
+                result[0].clear()
+                result[0].append(real_path_results[(o, d)][0][0])
+                real_path_sum = real_path_results[(o, d)][0][1] + real_path_results[(o, d)][0][2]
+                for iii in range(0, len(real_path_results[(o, d)])):
+                    if iii > 0 and real_path_results[(o, d)][iii][1] + real_path_results[(o, d)][iii][2] - real_path_sum <= 1:
+                        result[0].append(real_path_results[(o, d)][iii][0])
             # print(kk_list)
             # print(kkk_list)
             # print(' ')
             # print(wait_times_list)
             # print(1145141919810)
             # print(path_results)
-            # print(666666666666666666666)
-            # print(real_path_results)
+            print(11223344556677889900998877665544332211)
+            print(real_path_results)
             # print(666666666666666666666)
 
 
@@ -487,13 +576,22 @@ if __name__ == "__main__":
             print(f"充电车数量为{len(charge_v)}")
             print(66666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666)
             # if i / T <= 2:
-            center.dispatch(charge_v, path_results, i)
+            # center.dispatch(charge_v, path_results, i)
             # # else:
             # center.dispatch_plus(t, charge_v, center, batch_size, path_results, 1, 0)
             # for od, result in real_path_results.items():
             #     if len(result) == 1:
             #         result.append(result[0])
-            # center.dispatch_promax(center, real_path_results, charge_v, charge_od, 10, 4, lmp_dict, 10)
+            print("最后一道检测，数据预处理是这样的，硬控我")
+            print(len(charge_v))
+            cnt_charge_od = {}
+            for (o, d) in charge_od:
+                if (o, d) in cnt_charge_od:
+                    cnt_charge_od[(o, d)] += 1
+                else:
+                    cnt_charge_od[(o, d)] = 1
+            print(cnt_charge_od)
+            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 30, 4, lmp_dict, 20, cnt_charge_od)
 
 
         for cs in center.charge_stations.values():

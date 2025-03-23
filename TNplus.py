@@ -39,7 +39,9 @@ class DispatchCenter:
         self.nodes = nodes
         self.charge_stations = charge_stations
         self.charge_id = charge_id
+        self.edge_timely_estimated_load = {}
         self.log = log
+        self.delay_vehicles = [[] for _ in range(100)]
 
     def calculate_path(self, path):
         return [edge.id for i in range(len(path) - 1) for edge in self.edges.values() if
@@ -96,183 +98,45 @@ class DispatchCenter:
         #                 sum_road += length * time
         return sum_road
 
-    def dispatch_promax(self, center, real_path_results, charge_v, charge_od, num_population, num_cs, lmp_dict, max_iter):
-        cs_result, cs_for_choice, real_cs_ids = EAalgorithm.dispatch_cs_nsga2(center, real_path_results, charge_v, charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter)
-        dispatched_path, _ , actual_path = EAalgorithm.dispatch_path_ga(cs_result, cs_for_choice, center, real_path_results, charge_v, charge_od, num_population, num_cs, max_iter)
+    def dispatch_promax(self, t, center, real_path_results, charge_v, charge_od, num_population, num_cs, lmp_dict, max_iter, OD_ratio):
 
-        print("Dispatching finished")
-        # print(real_cs_ids)
-        # print(actual_path)
+        # #NSGA2个体调度
+        # cs_result, cs_for_choice, real_cs_ids = EAalgorithm.dispatch_cs_nsga2(center, real_path_results, charge_v, charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter)
+        # # dispatched_path, _ , actual_path = EAalgorithm.dispatch_path_ga(cs_result, cs_for_choice, center, real_path_results, charge_v, charge_od, num_population, num_cs, max_iter)
+        # _, actual_path = EAalgorithm.generate_shortest_actual_paths(cs_result, charge_od, real_path_results, cs_for_choice, charge_v)
+        #
+        # print("Dispatching finished")
+        # # print(real_cs_ids)
+        # # print(actual_path)
+        #
+        # for i, vehicle_id in enumerate(charge_v):
+        #     vehicle = self.vehicles[vehicle_id]
+        #     path = actual_path[i]
+        #     print(path, vehicle.origin, vehicle.destination)
+        #     vehicle.path = self.calculate_path(path)
+        #     print(vehicle.path)
+        #     vehicle.road = vehicle.path[0]
+        #     vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
+        #     vehicle.charge = (real_cs_ids[i], list(self.charge_stations[real_cs_ids[i]].pile.keys())[0])  # Assuming the first pile for simplicity
+        #
+        #     # Update the flow on the roads
+        #     time = sum(self.edges[road_id].calculate_drive() for road_id in vehicle.path)
+        #     self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = time
+        #     self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
+        #     if vehicle.id in vehicle.center.charge_id:
+        #         self.edges[vehicle.road].capacity["charge"] = self.solve_tuple(
+        #             self.edges[vehicle.road].capacity["charge"], 1)
+        #     self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(
+        #         self.edges[vehicle.road].capacity[vehicle.next_road], 1)
+        #
+        #     vehicle.drive()
 
-        for i, vehicle_id in enumerate(charge_v):
-            vehicle = self.vehicles[vehicle_id]
-            path = actual_path[i]
-            print(path, vehicle.origin, vehicle.destination)
-            vehicle.path = self.calculate_path(path)
-            print(vehicle.path)
-            vehicle.road = vehicle.path[0]
-            vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
-            vehicle.charge = (real_cs_ids[i], list(self.charge_stations[real_cs_ids[i]].pile.keys())[0])  # Assuming the first pile for simplicity
-
-            # Update the flow on the roads
-            time = sum(self.edges[road_id].calculate_drive() for road_id in vehicle.path)
-            self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = time
-            self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
-            if vehicle.id in vehicle.center.charge_id:
-                self.edges[vehicle.road].capacity["charge"] = self.solve_tuple(
-                    self.edges[vehicle.road].capacity["charge"], 1)
-            self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(
-                self.edges[vehicle.road].capacity[vehicle.next_road], 1)
-
-            vehicle.drive()
-
-
-    # def dispatch_plus(self, current_time, charge_vehicles, center, batch_size, path_results, k, eps = 0):
-    #     # 周期获取充电需求
-    #     total_charge_cost = {}
-    #     for charge_station in self.charge_stations.values():
-    #         total_charge_cost[f"EVCS {charge_station.id}"] = charge_station.cost / 10 / 1000
-    #         charge_station.cost = 0
-    #     # print("获取充电信息完成")
-    #
-    #     # 周期获取每个充电站该周期内到达车数（这里按功率直接分开）
-    #     arrive_num = {}
-    #     for charge_station in self.charge_stations.values():
-    #         for pile in charge_station.pile.keys():
-    #             # print(charge_station.v_arrive[pile])
-    #             arrive_num[(charge_station.id, pile)] = charge_station.v_arrive[pile] / T
-    #             charge_station.v_arrive[pile] = 0
-    #     # print("获取到达车数完成")
-    #
-    #     # 周期获取每个充电站车辆平均充电时长
-    #     charge_time = {}
-    #     for charge_station in self.charge_stations.values():
-    #         for pile in charge_station.pile.keys():
-    #             if self.log:
-    #                 print("Calculating charge_time")
-    #                 print(charge_station.t_cost[pile])
-    #             if charge_station.t_cost[pile][1] > 0 and charge_station.t_cost[pile][0] > 0:
-    #                 charge_time[(charge_station.id, pile)] = charge_station.t_cost[pile][0] / \
-    #                                                          charge_station.t_cost[pile][1]
-    #             else:
-    #                 charge_time[(charge_station.id, pile)] = 0  # 待商榷
-    #             charge_station.t_cost[pile] = self.solve_tuple(charge_station.t_cost[pile],
-    #                                                            -charge_station.t_cost[pile][0], 0)
-    #             charge_station.t_cost[pile] = self.solve_tuple(charge_station.t_cost[pile],
-    #                                                            -charge_station.t_cost[pile][1], 1)
-    #     # print("获取平均时长完成")
-    #
-    #     # 根据需求生成电价（也是示例）
-    #     if 0 not in list(total_charge_cost.values()):
-    #         cost = list(total_charge_cost.values())
-    #         log_reversed_cost = [-np.log(x) for x in cost]
-    #         exp_prob = np.exp(log_reversed_cost)
-    #         softmax_prob = exp_prob / np.sum(exp_prob)
-    #         cs_prob = softmax_prob / np.sum(softmax_prob)
-    #     else:
-    #         cs_prob = [1 / len(cs)] * len(cs)
-    #     # print("生成电价完成")
-    #
-    #     def calculate_TN_time_and_energy(path, eps):
-    #         road_time = 0
-    #         junction_time = 0
-    #         for i in range(0, len(path) - 1):
-    #             road_time += self.edges[path[i]].calculate_time()
-    #             node_id = self.edges[path[i]].destination
-    #             junction_time += self.nodes[node_id].calculate_wait(path[i], path[i + 1])
-    #         return road_time * vehicle.Edrive + junction_time * vehicle.Ewait + eps
-    #
-    #     def calculate_cs_wait_time(cs_id, cs_power):
-    #         charge_s = self.charge_stations[cs_id]
-    #         if charge_time[cs_id, cs_power] == 0:
-    #             return 0
-    #         else:
-    #             cs_time = charge_s.calculate_wait_cs(charge_s.pile[cs_power],
-    #                                                  charge_s.capacity * charge_s.pile[cs_power] / sum(
-    #                                                      charge_s.pile.values()),
-    #                                                  arrive_num[cs_id, cs_power],
-    #                                                  1 / charge_time[cs_id, cs_power])
-    #             return cs_time
-    #
-    #
-    #     def calculate_path(path):
-    #         return [edge.id for i in range(len(path) - 1) for edge in self.edges.values() if
-    #                 edge.origin == path[i] and edge.destination == path[i + 1]]
-    #
-    #
-    #     # #调度结果影响交通
-    #     def update_flow(vehicle, path):
-    #         time = sum(self.edges[i].calculate_drive() for i in path)
-    #         self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = current_time + time
-    #         if self.log:
-    #             print(f"车辆{vehicle.id} 在 {current_time}影响交通流")
-    #         self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
-    #         if vehicle.id in vehicle.center.charge_id:
-    #             self.edges[vehicle.road].capacity["charge"] = self.solve_tuple(self.edges[vehicle.road].capacity["charge"], 1)
-    #         self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(self.edges[vehicle.road].capacity[vehicle.next_road], 1)
-    #         if self.log:
-    #             print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
-    #
-    #
-    #
-    #
-    #
-    #
-    #     result = algorithm.run()
-    #
-    #
-    #     for i in range(min(len(charge_vehicles), batch_size)):
-    #         vehicle_id = charge_vehicles[i]
-    #         vehicle = self.vehicles[vehicle_id]
-    #         path1 = result[4 * i]
-    #         path2 = result[4 * i + 1]
-    #         c = result[4 * i + 2]
-    #         power = result[4 * i + 3]
-    #         O = vehicle.origin
-    #         D = vehicle.destinationw
-    #
-    #         if O == cs[c - 1]:
-    #             path1_result = []
-    #         else:
-    #             # print(cs)
-    #             # print(path_results)
-    #             path1_result = path_results[(O, cs[c - 1])][0][path1 - 1]
-    #
-    #         if D == cs[c - 1]:
-    #             path2_result = []
-    #         else:
-    #             # print(cs)
-    #             # print(path_results)
-    #             path2_result = path_results[(cs[c - 1], D)][0][path2 - 1]
-    #
-    #         if path1_result and path2_result and path1_result[-1] == path2_result[0]:
-    #             path = path1_result + path2_result[1:]
-    #         else:
-    #             path = path1_result + path2_result
-    #
-    #         vehicle.path = calculate_path(path)
-    #         vehicle.road = vehicle.path[0]
-    #         vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
-    #         vehicle.charge = (cs[c - 1], list(self.charge_stations[cs[c - 1]].pile.keys())[power - 1])
-    #
-    #
-    #         # print(f"Vehicle {vehicle.id} assigned to charge station {cs[c - 1]} with power {list(self.charge_stations[cs[c - 1]].pile.keys())[power - 1]}, path{vehicle.path}")
-    #         # print(f"path1{path1_result} path2{path2_result}")
-    #         # print(f"origin{vehicle.origin} destination{vehicle.destination}")
-    #
-    #         # process_path(vehicle)
-    #         update_flow(vehicle, vehicle.path)
-    #         vehicle.drive()
-    #
-    #
-
-
-
-
-
-
-
-
+        #CCRP、CCRPP
+        print(5198186941684986189)
+        print(center.edge_timely_estimated_load)
+        dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs)
+        # dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs)
+        EAalgorithm.update_center_for_heuristic(center, dispatch_result, t, charge_v)
 
 
 
@@ -588,9 +452,8 @@ class DispatchCenter:
         return
 
 
-
 class Vehicle:
-    def __init__(self, id, center, origin, destination, distance, road, next_road, path, Emax, E, Ewait, Edrive, iswait, charge, index=0, log = False, charging = False):
+    def __init__(self, id, center, origin, destination, distance, road, next_road, path, Emax, E, Ewait, Edrive, iswait, charge, index=0, log = False):
         """
         存储车辆信息
         :param id: 车辆id
@@ -610,6 +473,7 @@ class Vehicle:
         :param index: 坐标符，在path中指向下一道路
         :param charging: 是否在充电
         :param log：是否打印相关行为信息
+        :param speed: 车辆速度
         """
         self.id = id
         self.center = center
@@ -627,7 +491,10 @@ class Vehicle:
         self.charge = charge #充电站id, 充电功率， 默认和对应node的id相同（）
         self.index = index
         self.charging = False
+        self.speed = -1
+        self.wait_time = -1
         self.log = log
+        self.delay = False
 
     def drive(self, rate=1):
         """
@@ -637,13 +504,23 @@ class Vehicle:
         :param rate: 时间比率，用于缓解误差
         :return:
         """
+
+        if self.speed == -1:
+            self.speed = self.center.edges[self.road].calculate_drive()
+
+        if self.wait_time == -1:
+            if self.next_road != -1:
+                self.wait_time = self.center.nodes[self.center.edges[self.road].destination].calculate_wait(self.road, self.next_road)
+            else:
+                self.wait_time = 0
+
         if self.road != -1:
             road = self.center.edges[self.road]
             # print(road.id)
             if rate > 0 and rate < 1:
-                drive_distance = road.calculate_drive() * rate
+                drive_distance = self.speed * rate
             else:
-                drive_distance = road.calculate_drive()
+                drive_distance = self.speed
             if drive_distance < self.distance:
                 self.distance -= drive_distance
                 self.E -= drive_distance * self.Edrive
@@ -692,15 +569,10 @@ class Vehicle:
         """
         road = self.center.edges[self.road]
         junction = self.center.nodes[road.destination]
-        g, c= junction.signal[(fr, to)]
-        cap, x = road.capacity[to]
         if self.log:
             print(f"车辆 {self.id} 正在等待 ")
         if self.is_wait == 0 and self.distance == 0:
-            if c != 0:
-                self.is_wait = 0.5 * c * ((1 - g / c) ** 2 / (1 - min(1, x / cap) * g / c))
-            else:
-                self.change_road(1)
+            self.is_wait = self.wait_time
             if self.is_wait > t * (1 - rate):
                 self.is_wait -= t * (1 - rate)
                 self.E -= t * self.Ewait * (1 - rate)
@@ -743,7 +615,6 @@ class Vehicle:
                     print(f'在车辆 {self.id} change_road中道路{self.road}流量-1')
 
             self.road = self.next_road
-            # print(self.index)
             if self.index < len(self.path) - 1:
                 self.index += 1
                 self.next_road = self.path[self.index]
@@ -753,8 +624,13 @@ class Vehicle:
 
             road = self.center.edges[self.road]
             self.distance = road.length
-            if self.distance > rate * self.center.edges[self.road].calculate_drive():
-                self.distance -= rate * self.center.edges[self.road].calculate_drive()
+            self.speed = road.calculate_drive()
+            if self.next_road != -1:
+                self.wait_time = self.center.nodes[road.destination].calculate_wait(self.road, self.next_road)
+            else:
+                self.wait_time = 0
+            if self.distance > rate * self.speed:
+                self.distance -= rate * self.speed
             else:
                 self.distance = 0.001
             road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
@@ -894,10 +770,6 @@ class Edge:
 
 
     def calculate_drive(self):
-        """
-        BPR公式计算单位时间内可行驶距离
-        :return:
-        """
         return self.length / self.free_time / (1 + self.b * (self.k ** self.power))
 
 

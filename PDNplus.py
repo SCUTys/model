@@ -35,7 +35,8 @@ def create_ieee14():
     #
     for gen_idx in net.gen.index:
         net.poly_cost.drop(net.poly_cost[net.poly_cost.element == gen_idx].index, inplace=True)
-        pp.create_poly_cost(net, element=gen_idx, et="gen", cp1_eur_per_mw=150, cp2_eur_per_mw2=0.03, cp0_eur=0)
+        pp.create_poly_cost(net, element=gen_idx, et="gen", cp1_eur_per_mw=116, cp2_eur_per_mw2=22.5, cp0_eur=0)
+    # pp.create_poly_cost(net, element=0, et="ext_grid", cp1_eur_per_mw=150, cp0_eur=0)
 
     net.bus['max_vm_pu'] = 1.2
     #
@@ -96,20 +97,21 @@ def update_load(net, total_load, time_slot):
 
 
 def calculate_loss(net, rou):
-# 获取平衡节点（1号节点）输送的有功功率
-    slack_bus = net.ext_grid.bus.values[0]
-
-# 计算平衡节点输送的有功功率之和
-    slack_power = net.res_gen[net.gen.bus == slack_bus]['p_mw'].sum()
-
-    # 计算所有发电机的代价函数之和
-    total_cost = 0
-    for gen_idx in net.gen.index:
-        p_mw = net.res_gen.at[gen_idx, 'p_mw']
-        cost_params = net.poly_cost[net.poly_cost.element == gen_idx]
-        cp0 = cost_params.cp0_eur.values[0]
-        cp1 = cost_params.cp1_eur_per_mw.values[0]
-        cp2 = cost_params.cp2_eur_per_mw2.values[0]
-        total_cost += cp0 + cp1 * p_mw + cp2 * p_mw ** 2
-
-    return rou * slack_power + total_cost
+# # 获取平衡节点（1号节点）输送的有功功率
+#     slack_bus = net.ext_grid.bus.values[0]
+#
+# # 计算平衡节点输送的有功功率之和
+#     slack_power = net.res_gen[net.gen.bus == slack_bus]['p_mw'].sum()
+#
+#     # 计算所有发电机的代价函数之和
+#     total_cost = 0
+#     for gen_idx in net.gen.index:
+#         p_mw = net.res_gen.at[gen_idx, 'p_mw']
+#         cost_params = net.poly_cost[net.poly_cost.element == gen_idx]
+#         cp0 = cost_params.cp0_eur.values[0]
+#         cp1 = cost_params.cp1_eur_per_mw.values[0]
+#         cp2 = cost_params.cp2_eur_per_mw2.values[0]
+#         total_cost += cp0 + cp1 * p_mw + cp2 * p_mw ** 2
+#
+#     return rou * slack_power + total_cost
+    return net.res_cost
