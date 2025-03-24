@@ -749,35 +749,39 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
 
         print(f"分配了{(O, D)}的{min_cap}辆车于{current_time + wait}, 路径为{path}")
         print(f"demand:{demand}")
-        print(' ')
+
         
     def check_path(inform, time_constraints, check_current = t):
-        [O, D, cs_id, path, wait] = inform[1]
-        check_path, check_time = dijkstra_plus(Graph, O, cs_id, D, check_current + wait, time_constraints)
+        [check_O, check_D, check_cs_id, c_path, check_wait] = inform[1]
         print(f"inform: {inform}")
+        print(f"使用的参数为{check_O, check_D, check_cs_id, check_current + check_wait, time_constraints}")
+        check_path, check_time = dijkstra_plus(Graph, check_O, check_cs_id, check_D, check_current + check_wait, time_constraints)
         print(f"check_path: {check_path}, check_time: {check_time}")
-        if check_time == inform[0]:
+        if check_time + check_wait == inform[0]:
             return True
         else:
             return False
 
     def update_path(inform, time_constraints, update_current = t):
-        [O, D, cs_id, path, wait] = inform[1]
-        print(f"updating {O, D}")
+        [update_O, update_D, u_cs_id, u_path, u_wait] = inform[1]
+        print(f"updating {update_O, update_D}")
         update_fastest_time = float('inf')
-        update_dispatch_od = (O, D)
+        update_dispatch_od = (update_O, update_D)
         update_dispatch_cs = None
         update_fastest_path = None
+        update_inform = None
         update_wait = -1
-        for cs_id in cs:
+        for update_cs_id in cs:
             for update_drive_time in range(update_current, update_current + 8):
-                update_total_path, update_total_travel_time = dijkstra_plus(Graph, O, cs_id, D, update_drive_time, time_constraints)
+                update_total_path, update_total_travel_time = dijkstra_plus(Graph, update_O, update_cs_id, update_D, update_drive_time, time_constraints)
                 if update_total_travel_time + update_drive_time - update_current < update_fastest_time:
-                    update_fastest_time = total_travel_time + update_drive_time - update_current
+                    update_fastest_time = update_total_travel_time + update_drive_time - update_current
                     update_fastest_path = update_total_path
-                    update_dispatch_cs = cs_id
+                    update_dispatch_cs = update_cs_id
                     update_wait = update_drive_time - update_current
+                    update_inform = [update_O, update_D, update_cs_id, update_drive_time, time_constraints]
         if update_fastest_path:
+            print(f"最短路使用的参数为{update_inform}， 最早到达时间为{update_fastest_time}")
             return update_fastest_time, [update_dispatch_od[0], update_dispatch_od[1], update_dispatch_cs, update_fastest_path, update_wait]
         else:
             return None, None
@@ -846,7 +850,7 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
             else:
                 new_path, new_inform = update_path(PP, time_constraints)
                 Pre_RQ.push(new_inform, new_path)
-                print(f"RQ空着，原来是{PP}, 更新了{[new_path, new_inform]}回到Pre_RQ")
+                print(f"原来是{PP}, 更新了{[new_path, new_inform]}回到Pre_RQ")
         Q1 = RQ.top()
         P1 = Pre_RQ.top()
         print(f"Q1: {Q1}, P1: {P1}")
