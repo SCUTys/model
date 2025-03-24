@@ -134,8 +134,8 @@ class DispatchCenter:
         #CCRP、CCRPP
         print(5198186941684986189)
         print(center.edge_timely_estimated_load)
-        dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs)
-        # dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs)
+        # dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs)
+        dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs)
         EAalgorithm.update_center_for_heuristic(center, dispatch_result, t, charge_v)
 
 

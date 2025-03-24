@@ -706,9 +706,10 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
         occupancy_en = -1
         occupancy_od = None
         time_stamp = wait + current_time
-        for p in range(len(fastest_path) - 1):
-            edge_o = fastest_path[p]
-            edge_d = fastest_path[p + 1]
+        print(traffic_flow)
+        for p in range(len(path) - 1):
+            edge_o = path[p]
+            edge_d = path[p + 1]
             time_interval = Graph[edge_o][edge_d]
             for tt in range(time_stamp, min(time_stamp + time_interval, 60)):
                 cap = traffic_flow[(edge_o, edge_d)][time_stamp][1] - traffic_flow[(edge_o, edge_d)][time_stamp][0]
@@ -726,9 +727,10 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
 
         current = current_time
         min_cap = min(min_cap, demand[(O, D)])
-        for p in range(len(fastest_path) - 1):
-            edge_o = fastest_path[p]
-            edge_d = fastest_path[p + 1]
+
+        for p in range(len(path) - 1):
+            edge_o = path[p]
+            edge_d = path[p + 1]
             for time in range(current, min(current + Graph[edge_o][edge_d], 60)):
                 traffic_flow[(edge_o, edge_d)][current][0] += min_cap
             current += Graph[edge_o][edge_d]
@@ -744,6 +746,41 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
         if current_time + wait not in dispatch_result.keys():
             dispatch_result[current_time + wait] = {}
         dispatch_result[current_time + wait][(O, D)] = (min_cap, cs_id, path)
+
+        print(f"分配了{(O, D)}的{min_cap}辆车于{current_time + wait}, 路径为{path}")
+        print(f"demand:{demand}")
+        print(' ')
+        
+    def check_path(inform, time_constraints, check_current = t):
+        [O, D, cs_id, path, wait] = inform[1]
+        check_path, check_time = dijkstra_plus(Graph, O, cs_id, D, check_current + wait, time_constraints)
+        print(f"inform: {inform}")
+        print(f"check_path: {check_path}, check_time: {check_time}")
+        if check_time == inform[0]:
+            return True
+        else:
+            return False
+
+    def update_path(inform, time_constraints, update_current = t):
+        [O, D, cs_id, path, wait] = inform[1]
+        print(f"updating {O, D}")
+        update_fastest_time = float('inf')
+        update_dispatch_od = (O, D)
+        update_dispatch_cs = None
+        update_fastest_path = None
+        update_wait = -1
+        for cs_id in cs:
+            for update_drive_time in range(update_current, update_current + 8):
+                update_total_path, update_total_travel_time = dijkstra_plus(Graph, O, cs_id, D, update_drive_time, time_constraints)
+                if update_total_travel_time + update_drive_time - update_current < update_fastest_time:
+                    update_fastest_time = total_travel_time + update_drive_time - update_current
+                    update_fastest_path = update_total_path
+                    update_dispatch_cs = cs_id
+                    update_wait = update_drive_time - update_current
+        if update_fastest_path:
+            return update_fastest_time, [update_dispatch_od[0], update_dispatch_od[1], update_dispatch_cs, update_fastest_path, update_wait]
+        else:
+            return None, None
 
 
 
@@ -772,7 +809,6 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
                     time_constraints[(O, D)] = []
                 time_constraints[(O, D)].append((i, i + center.edges[edge_od_id[(O, D)]].length))
 
-
     RQ = PriorityQueue()
     Pre_RQ = PriorityQueue()
 
@@ -787,7 +823,7 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
             continue
         for cs_id in cs:
             total_path, total_travel_time = dijkstra_plus(Graph, O, cs_id, D, current_time, {})
-            if total_travel_time  < fastest_time:
+            if total_travel_time < fastest_time:
                 fastest_time = total_travel_time
                 fastest_path = total_path
                 fastest_cs = cs_id
@@ -795,57 +831,60 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
             Pre_RQ.push([O, D, fastest_cs, fastest_path, 0], fastest_time)
 
     (k, v) = Pre_RQ.pop()
-    RQ.push(k, v)
+    RQ.push(v, k)
 
+    main_loop_cnt = 0
     while any(demand.values()):
-        if not RQ.top():
+        main_loop_cnt += 1
+        print(f"main_loop: {main_loop_cnt}")
+        while RQ.top() is None:
             PP = Pre_RQ.pop()
-            RQ.push(PP[0], PP[1])
+            print(f"RQ空着", end=' ')
+            if check_path(PP, time_constraints):
+                RQ.push(PP[1], PP[0])
+                print(f"RQ有了{PP}")
+            else:
+                new_path, new_inform = update_path(PP, time_constraints)
+                Pre_RQ.push(new_inform, new_path)
+                print(f"RQ空着，原来是{PP}, 更新了{[new_path, new_inform]}回到Pre_RQ")
         Q1 = RQ.top()
         P1 = Pre_RQ.top()
+        print(f"Q1: {Q1}, P1: {P1}")
         if not P1:
-            P1 = [[-1, -1, -1, [], -1], float('inf')]
-        if P1[1] < Q1[1]:
+            P1 = [float('inf'), [-1, -1, -1, [], -1]]
+        if P1[0] < Q1[0]:
             Pre_RQ.pop()
-            (O, D, cs_id, path, wait) = P1[0]
-            check_path, check_time = dijkstra_plus(Graph, O, cs_id, D, path, wait)
-            if check_time == P1:
-                RQ.push(P1[0], P1[1])
+            if check_path(P1, time_constraints):
+                RQ.push(P1[1], P1[0])
             else:
-                P1[1] = check_time
-                Pre_RQ.push(P1[0], P1[1])
+                new_path, new_inform = update_path(P1, time_constraints)
+                Pre_RQ.push(new_inform, new_path)
 
         else:
             RQ.pop()
-            O = Q1[0][0]
-            D = Q1[0][1]
-            dispatch_flow(Q1[0], current_time)
+            O = Q1[1][0]
+            D = Q1[1][1]
+
 
             Q2 = RQ.top()
             PQ = Q2 if Q2 else P1
-            while Q1[1] <= PQ[1] and demand[(O, D)] > 0:
-                Q1_time = float('inf')
-                Q1_path = None
-                Q1_cs = -1
-                Q1_wait = 0
-                for cs_id in cs:
-                    for drive_time in range(current_time, current_time + 6):  # 这里6是考虑到每条道路的长短随便设的
-                        total_path, total_travel_time = dijkstra_plus(Graph, O, cs_id, D, drive_time,
-                                                                      time_constraints)
-                        if total_travel_time + drive_time - current_time < Q1_time:
-                            Q1_time = total_travel_time + drive_time - current_time
-                            Q1_path = total_path
-                            Q1_cs = cs_id
-                            Q1_wait = drive_time - current_time
-                Q1[0] = [O, D, Q1_cs, Q1_path, Q1_wait]
-                Q1[1] = Q1_time
-                if Q1_path:
-                    dispatch_flow(Q1[0], current_time)
+
+
+            print(f"Q1: {Q1}, Q2: {Q2}, PQ: {PQ}")
+            loop_cnt = 0
+            while Q1[0] <= PQ[0] and demand[(O, D)] > 0:
+                loop_cnt += 1
+                print(f"loop_cnt: {loop_cnt}")
+                dispatch_flow(Q1[1], current_time)
+                new_Q1_path, new_Q1_inform = update_path(Q1, time_constraints)
+                Q1 = [new_Q1_path, new_Q1_inform]
+                print(f"Q1: {Q1}, Q2: {Q2}, PQ: {PQ}")
+
             if demand[(O, D)] > 0:
                 if Q2:
-                    Pre_RQ.push(Q1[0], Q1[1])
+                    Pre_RQ.push(Q1[1], Q1[0])
                 else:
-                    RQ.push(Q1[0], Q1[1])
+                    RQ.push(Q1[1], Q1[0])
 
     return dispatch_result, traffic_flow
 
