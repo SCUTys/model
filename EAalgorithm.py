@@ -500,28 +500,27 @@ class PriorityQueue:
 
 def dijkstra_with_travel_time(graph, start, end, start_time, time_constraints):
     """
-    改进后的Dijkstra算法，支持多个不同时段的通行限制。
+    修改后的Dijkstra算法，接受时间点集合作为约束
 
     参数:
     - graph: 图的邻接表表示 {'A': {'B': travel_time, ...}, ...}
     - start: 起始节点
     - end: 终止节点
     - start_time: 起始时间
-    - time_constraints: 时间窗口限制，格式 {('u', 'v'): [(start_time1, end_time1), (start_time2, end_time2), ...]}
+    - time_constraints: 格式 {('u', 'v'): [time_point1, time_point2, ...]}
 
     返回:
-    - 最短路径和总通行时长，如果没有路径，返回 None。
+    - 最短路径和总通行时长，如果没有路径，返回 None
     """
     # 初始化
-
-    shortest_paths = {node: (float('inf'), None, None) for node in graph}  # (最短距离, 前驱节点, 到达时间)
-    shortest_paths[start] = (0, None, start_time)  # 起点
-    priority_queue = [(0, start, start_time)]  # (通行时间, 当前节点, 当前时间)
+    shortest_paths = {node: (float('inf'), None, None) for node in graph}
+    shortest_paths[start] = (0, None, start_time)
+    priority_queue = [(0, start, start_time)]
 
     while priority_queue:
         current_distance, current_node, current_time = heapq.heappop(priority_queue)
 
-        # 如果当前节点是终点，返回路径
+        # 如果到达终点，返回路径
         if current_node == end:
             path = []
             while current_node:
@@ -531,28 +530,35 @@ def dijkstra_with_travel_time(graph, start, end, start_time, time_constraints):
 
         # 遍历相邻节点
         for neighbor, travel_time in graph[current_node].items():
-            next_time = current_time + travel_time  # 到达邻居节点的时间
+            # 计算到达下一节点的时间
+            next_time = current_time + travel_time
 
-            # 检查多个时间窗口限制
+            # 检查是否有约束时间点落在行驶区间内
             if (current_node, neighbor) in time_constraints:
-                restricted_windows = time_constraints[(current_node, neighbor)]
-                is_restricted = False
-                for restricted_start, restricted_end in restricted_windows:
-                    # 检查进入和离开时间
-                    if not (next_time <= restricted_start or current_time >= restricted_end):
-                        is_restricted = True
+                restricted_points = time_constraints[(current_node, neighbor)]
+                can_traverse = True
+
+                # 检查是否有时间点落在行驶时间段内（不含终点时间）
+                # 如果车辆刚好在约束时间点离开，这是允许的
+                # 如果车辆在约束时间点仍在道路上行驶，这是不允许的
+                for point in restricted_points:
+                    if current_time <= point < next_time:
+                        # 车辆在point时刻还在道路上行驶，不允许
+                        can_traverse = False
                         break
-                if is_restricted:
+                    # next_time == point是允许的（车辆刚好在约束时间点离开）
+                    # point < current_time或point > next_time也是允许的（车辆在约束前已进入或约束后才进入）
+
+                if not can_traverse:
                     continue  # 如果受到限制，跳过该边
 
-            # 计算新的通行时间
+            # 更新路径
             distance = current_distance + travel_time
-            if distance < shortest_paths[neighbor][0]:  # 找到更短路径
-                shortest_paths[neighbor] = (distance, current_node, next_time)  # 更新路径信息
+            if distance < shortest_paths[neighbor][0]:
+                shortest_paths[neighbor] = (distance, current_node, next_time)
                 heapq.heappush(priority_queue, (distance, neighbor, next_time))
 
-    print(start, end, start_time, time_constraints)
-    return None, float('inf')  # 如果没有路径满足条件
+    return None, float('inf')  # 没有找到有效路径
 
 
 def dijkstra_plus(graph, start, stopover, end, start_time, time_constraints):
@@ -613,7 +619,7 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
             if flow[i][0] >= flow[i][1]:
                 if (O, D) not in time_constraints.keys():
                     time_constraints[(O, D)] = []
-                time_constraints[(O, D)].append((i, i + center.edges[edge_od_id[(O, D)]].length))
+                time_constraints[(O, D)].append(i)
 
 
     # Initialize the result dictionary
@@ -643,9 +649,6 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
         if fastest_path:
             min_cap = float('inf')
             occupancy = []
-            occupancy_st = -1
-            occupancy_en = -1
-            occupancy_od = None
             time_stamp = wait + current_time
             for p in range(len(fastest_path) - 1):
                 edge_o = fastest_path[p]
@@ -653,15 +656,11 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
                 time_interval = Graph[edge_o][edge_d]
                 for tt in range(time_stamp, min(time_stamp + time_interval, 60)):
                     cap = traffic_flow[(edge_o, edge_d)][time_stamp][1] - traffic_flow[(edge_o, edge_d)][time_stamp][0]
+                    if cap < min_cap:
+                        occupancy.clear()
                     if cap <= min_cap:
                         min_cap = cap
-                        occupancy_st = time_stamp
-                        occupancy_en = time_stamp + time_interval
-                        occupancy_od = (edge_o, edge_d)
-                        if cap < min_cap:
-                            occupancy.clear()
-                        occupancy.append([occupancy_od, occupancy_st, occupancy_en])
-
+                        occupancy.append([(edge_o, edge_d), tt])
 
                 time_stamp += time_interval
                 if time_stamp > 60: break
@@ -676,11 +675,11 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
                 current += Graph[edge_o][edge_d]
                 if current > 60: break
 
-            for [od, st, en] in occupancy:
+            for [od, ttt] in occupancy:
                 if od not in time_constraints.keys():
                     time_constraints[od] = []
-                if (st, en) not in time_constraints[od]:
-                    time_constraints[od].append((st, en))
+                if ttt not in time_constraints[od]:
+                    time_constraints[od].append(ttt)
 
             demand[dispatch_od] -= min_cap
 
@@ -702,9 +701,6 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
         [O, D, cs_id, path, wait] = inform
         min_cap = float('inf')
         occupancy = []
-        occupancy_st = -1
-        occupancy_en = -1
-        occupancy_od = None
         time_stamp = wait + current_time
         print(traffic_flow)
         for p in range(len(path) - 1):
@@ -712,15 +708,18 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
             edge_d = path[p + 1]
             time_interval = Graph[edge_o][edge_d]
             for tt in range(time_stamp, min(time_stamp + time_interval, 60)):
-                cap = traffic_flow[(edge_o, edge_d)][time_stamp][1] - traffic_flow[(edge_o, edge_d)][time_stamp][0]
+                cap = traffic_flow[(edge_o, edge_d)][tt][1] - traffic_flow[(edge_o, edge_d)][tt][0]
+                if cap < 0:
+                    print(f"这他妈是负数？ (edge_o, edge_d): {(edge_o, edge_d)}, tt: {tt}, cap: {cap}")
+                    print(f"traffic_flow: {traffic_flow}")
+                    print(f"path: {path}")
+                    print(f"inform: {inform}")
+                    print(f"time_constraints: {time_constraints}")
+                if cap < min_cap:
+                    occupancy.clear()
                 if cap <= min_cap:
                     min_cap = cap
-                    occupancy_st = time_stamp
-                    occupancy_en = time_stamp + time_interval
-                    occupancy_od = (edge_o, edge_d)
-                    if cap < min_cap:
-                        occupancy.clear()
-                    occupancy.append([occupancy_od, occupancy_st, occupancy_en])
+                    occupancy.append([(edge_o, edge_d), tt])
 
             time_stamp += time_interval
             if time_stamp > 60: break
@@ -728,18 +727,19 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
         current = current_time
         min_cap = min(min_cap, demand[(O, D)])
 
+
         for p in range(len(path) - 1):
             edge_o = path[p]
             edge_d = path[p + 1]
             for time in range(current, min(current + Graph[edge_o][edge_d], 60)):
                 traffic_flow[(edge_o, edge_d)][current][0] += min_cap
             current += Graph[edge_o][edge_d]
-            if current > 60: break
 
-        for [od, st, en] in occupancy:
+        for [od, ttt] in occupancy:
             if od not in time_constraints.keys():
                 time_constraints[od] = []
-            time_constraints[od].append((st, en))
+            if ttt not in time_constraints[od]:
+                time_constraints[od].append(ttt)
 
         demand[(O, D)] -= min_cap
 
@@ -806,12 +806,6 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
         Graph[edge.origin][edge.destination] = round(edge.calculate_time())
 
     time_constraints = {}
-    for (O, D), flow in traffic_flow.items():
-        for i in range(t, len(flow)):
-            if flow[i][0] >= flow[i][1]:
-                if (O, D) not in time_constraints.keys():
-                    time_constraints[(O, D)] = []
-                time_constraints[(O, D)].append((i, i + center.edges[edge_od_id[(O, D)]].length))
 
     RQ = PriorityQueue()
     Pre_RQ = PriorityQueue()
@@ -841,6 +835,16 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
     while any(demand.values()):
         main_loop_cnt += 1
         print(f"main_loop: {main_loop_cnt}")
+
+        for (O, D), flow in traffic_flow.items():
+            for ii in range(t, len(flow)):
+                if flow[ii][0] >= flow[ii][1]:
+                    if (O, D) not in time_constraints.keys():
+                        time_constraints[(O, D)] = []
+                    if ii not in time_constraints[(O, D)]:
+                        time_constraints[(O, D)].append(ii)
+        print(f"time_constraints: {time_constraints}")
+
         while RQ.top() is None:
             PP = Pre_RQ.pop()
             print(f"RQ空着", end=' ')
@@ -879,7 +883,8 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
             while Q1[0] <= PQ[0] and demand[(O, D)] > 0:
                 loop_cnt += 1
                 print(f"loop_cnt: {loop_cnt}")
-                dispatch_flow(Q1[1], current_time)
+                if check_path(Q1, time_constraints):
+                    dispatch_flow(Q1[1], current_time)
                 new_Q1_path, new_Q1_inform = update_path(Q1, time_constraints)
                 Q1 = [new_Q1_path, new_Q1_inform]
                 print(f"Q1: {Q1}, Q2: {Q2}, PQ: {PQ}")
