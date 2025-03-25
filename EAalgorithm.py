@@ -655,7 +655,12 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
                 edge_d = fastest_path[p + 1]
                 time_interval = Graph[edge_o][edge_d]
                 for tt in range(time_stamp, min(time_stamp + time_interval, 60)):
-                    cap = traffic_flow[(edge_o, edge_d)][time_stamp][1] - traffic_flow[(edge_o, edge_d)][time_stamp][0]
+                    cap = traffic_flow[(edge_o, edge_d)][tt][1] - traffic_flow[(edge_o, edge_d)][tt][0]
+                    if cap < 0:
+                        print(f"这他妈是负数？ (edge_o, edge_d): {(edge_o, edge_d)}, tt: {tt}, time_stamp: {tt}, cap: {cap},current_time: {current_time}")
+                        print(f"traffic_flow: {traffic_flow}")
+                        print(f"path: {fastest_path}")
+                        print(f"time_constraints: {time_constraints}")
                     if cap < min_cap:
                         occupancy.clear()
                     if cap <= min_cap:
@@ -670,8 +675,8 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
             for p in range(len(fastest_path) - 1):
                 edge_o = fastest_path[p]
                 edge_d = fastest_path[p + 1]
-                for time in range(current, min(current + Graph[edge_o][edge_d], 60)):
-                    traffic_flow[(edge_o, edge_d)][current][0] += min_cap
+                for tttt in range(current, min(current + Graph[edge_o][edge_d], 60)):
+                    traffic_flow[(edge_o, edge_d)][tttt][0] += min_cap
                 current += Graph[edge_o][edge_d]
                 if current > 60: break
 
