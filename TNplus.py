@@ -6,6 +6,7 @@ import csv
 import ast
 import sympy as sp
 import EAalgorithm
+import time
 from scipy.special import gammaln
 
 t = 1 #min
@@ -40,8 +41,10 @@ class DispatchCenter:
         self.charge_stations = charge_stations
         self.charge_id = charge_id
         self.edge_timely_estimated_load = {}
+        self.edge_timely_estimated_load_bpr = {}
         self.log = log
         self.delay_vehicles = [[] for _ in range(100)]
+        self.dispatch_time_cnt = []
 
     def calculate_path(self, path):
         return [edge.id for i in range(len(path) - 1) for edge in self.edges.values() if
@@ -134,8 +137,12 @@ class DispatchCenter:
         #CCRP、CCRPP
         print(5198186941684986189)
         print(center.edge_timely_estimated_load)
+        start = time.time()
         # dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs)
         dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs)
+        end = time.time()
+        self.dispatch_time_cnt.append(end - start)
+        print(f"Dispatching finished in {end - start} seconds")
         EAalgorithm.update_center_for_heuristic(center, dispatch_result, t, charge_v)
 
 

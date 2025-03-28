@@ -21,7 +21,7 @@ t = 1  #min
 T = 10  #min
 T_pdn = 3 * T  #min
 roadmap = 'SF'  #目前支持SF、EMA和PY
-od_no = '2' #目前支持空字符串、1和2
+od_no = '3' #目前支持空字符串、1和2
 csv_net_path = 'data/' + roadmap + '/' + roadmap + '_net.csv'
 csv_od_path = 'data/' + roadmap + '/' + roadmap + '_od' + od_no +'.csv'
 node = {'SF': 24, 'EMA': 76, 'PY': 167}
@@ -632,6 +632,7 @@ if __name__ == "__main__":
     print(f"道路行驶车辆{sum2}")
     print(f"已到达车辆{sum1}")
     print(f"总共流统计{sum1 + sum2}")
+    print(center.dispatch_time_cnt)
 
 
 

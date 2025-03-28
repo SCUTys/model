@@ -965,5 +965,23 @@ def update_center_for_heuristic(center, dispatch_result, current_time, charge_v)
                     center.delay_vehicles[drive_time].append(vehicle.id)
 
 
-def dispatch_CASPER():
+
+
+
+
+
+
+
+
+
+
+def dispatch_CASPER(center):
+    Graph = {}
+    edge_od_id = {}
+    for edge in center.edges.values():
+        edge_od_id[(edge.origin, edge.destination)] = edge.id
+        if edge.origin not in Graph.keys():
+            Graph[edge.origin] = {}
+        Graph[edge.origin][edge.destination] = {"cap": edge.capacity, "imp": edge.calculate_time()}
+
     return None
