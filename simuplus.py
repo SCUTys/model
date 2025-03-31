@@ -363,9 +363,9 @@ if __name__ == "__main__":
             for cs in center.charge_stations.values():
                 print(f"{cs.id} : {cs.capacity}")
                 print(f"{cs.id} : {cs.dispatch}")
-                print(f"{cs.id} : {len(cs.queue[120])}")
+                print(f"{cs.id} : {len(cs.queue[300])}")
                 print(f"{cs.id} : {cs.queue}")
-                print(f"{cs.id} : {len(cs.charge[120])}")
+                print(f"{cs.id} : {len(cs.charge[300])}")
                 print(f"{cs.id} : {cs.charge}")
                 print(' ')
 

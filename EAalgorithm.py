@@ -1031,7 +1031,7 @@ def update_center_for_heuristic(center, dispatch_result, current_time, charge_v,
                 vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
                 vehicle.distance = center.edges[vehicle.road].length
                 vehicle.speed = center.edges[vehicle.road].calculate_drive()
-                vehicle.charge = (cs_id, 120)
+                vehicle.charge = (cs_id, 300)
 
                 flow_ind = drive_time
                 for path_ind in range(0, len(vehicle.path)):
@@ -1067,7 +1067,7 @@ def update_center_for_heuristic(center, dispatch_result, current_time, charge_v,
                 vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
                 vehicle.distance = center.edges[vehicle.road].length
                 vehicle.speed = center.edges[vehicle.road].calculate_drive()
-                vehicle.charge = (cs_id, 120)
+                vehicle.charge = (cs_id, 300)
                 vehicle.destination = cs_id
 
                 flow_ind = anxiety_drive_time
