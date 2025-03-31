@@ -807,8 +807,9 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
 
 
 
-        print(f"分配了{(O, D)}的{min_cap}辆车于{current_time + wait}, 路径为{path}")
+        print(f"分配了{(O, D)}的{min_cap}辆车于{current_time + wait}, 路径为{path}, 焦虑等级为{anxiety}")
         print(f"demand:{demand}")
+        print(f"anxiety_demand:{anxiety_demand}")
 
         
     def check_path(inform, time_constraints, check_current = t, log = False):
@@ -818,9 +819,9 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
             print(f"使用的参数为{check_O, check_D, check_cs_id, check_current + check_wait, time_constraints}")
 
         if check_anxiety == 1:
-            c_path, check_time = dijkstra_plus(Graph, check_O, check_cs_id, check_D, check_current + check_wait, time_constraints)
+            c_path, check_time, _, _ = dijkstra_plus(Graph, check_O, check_cs_id, check_D, check_current + check_wait, time_constraints)
         else:
-            c_path, check_time = dijkstra_plus(Graph, check_O, check_D, check_cs_id, check_current + check_wait, time_constraints)
+            c_path, check_time, _, _ = dijkstra_plus(Graph, check_O, check_D, check_cs_id, check_current + check_wait, time_constraints)
 
         if log:
             print(f"check_path: {c_path}, check_time: {check_time}")
@@ -838,19 +839,32 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
         update_fastest_path = None
         update_inform = None
         update_wait = -1
-        for update_cs_id in cs:
-            for update_drive_time in range(update_current, update_current + 15):
-                update_total_path, update_total_travel_time = dijkstra_plus(Graph, update_O, update_cs_id, update_D, update_drive_time, time_constraints)
-                if update_total_travel_time + update_drive_time - update_current < update_fastest_time:
-                    update_fastest_time = update_total_travel_time + update_drive_time - update_current
-                    update_fastest_path = update_total_path
-                    update_dispatch_cs = update_cs_id
-                    update_wait = update_drive_time - update_current
-                    update_inform = [update_O, update_D, update_cs_id, update_drive_time, time_constraints]
+        if update_anxiety == 1:
+            for update_cs_id in cs:
+                for update_drive_time in range(update_current, update_current + 8):
+                    update_total_path, update_total_travel_time, u_charge_time, _ = dijkstra_plus(Graph, update_O, update_cs_id, update_D, update_drive_time, time_constraints)
+                    if update_total_travel_time + update_drive_time - update_current < update_fastest_time and u_charge_time * 0.15 * (1 + 0.1 / 3) < 4.2:
+                        update_fastest_time = update_total_travel_time + update_drive_time - update_current
+                        update_fastest_path = update_total_path
+                        update_dispatch_cs = update_cs_id
+                        update_wait = update_drive_time - update_current
+                        update_inform = [update_O, update_D, update_cs_id, update_drive_time, time_constraints]
+        else:
+            for update_cs_id in cs:
+                for update_drive_time in range(update_current, update_current + 8):
+                    update_total_path, update_total_travel_time, _, _ = dijkstra_plus(Graph, update_O, update_D, update_cs_id, update_drive_time, time_constraints)
+                    if update_total_travel_time + update_drive_time - update_current < update_fastest_time and update_total_travel_time * 0.15 * (1 + 0.1 / 3) < 6:
+                        update_fastest_time = update_total_travel_time + update_drive_time - update_current
+                        update_fastest_path = update_total_path
+                        update_dispatch_cs = update_cs_id
+                        update_wait = update_drive_time - update_current
+                        update_inform = [update_O, update_D, update_cs_id, update_drive_time, time_constraints]
+
+
         if update_fastest_path:
             if log:
                 print(f"最短路使用的参数为{update_inform}， 最早到达时间为{update_fastest_time}")
-            return update_fastest_time, [update_dispatch_od[0], update_dispatch_od[1], update_dispatch_cs, update_fastest_path, update_wait]
+            return update_fastest_time, [update_dispatch_od[0], update_dispatch_od[1], update_dispatch_cs, update_fastest_path, update_wait, update_anxiety]
         else:
             return None, None
 
@@ -862,6 +876,7 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
 
     demand = OD_ratio.copy()
     anxiety_demand = anxiety_OD_ratio.copy()
+    print(f"anxiety_demand: {anxiety_demand}")
 
     Graph = {}
     edge_od_id = {}
@@ -872,12 +887,6 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
         Graph[edge.origin][edge.destination] = round(edge.calculate_time())
 
     time_constraints = {}
-    for (O, D), flow in traffic_flow.items():
-        for i in range(t, len(flow)):
-            if flow[i][0] >= flow[i][1]:
-                if (O, D) not in time_constraints.keys():
-                    time_constraints[(O, D)] = []
-                time_constraints[(O, D)].append(i)
 
     # Initialize the result dictionary
     dispatch_result = {}
@@ -901,6 +910,7 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
                 fastest_cs = cs_id
         if fastest_path:
             Pre_RQ.push([O, D, fastest_cs, fastest_path, 0, 1], fastest_time)
+            print(f"加入了{[O, D, fastest_cs, fastest_path, 0, 1]}",{fastest_time})
 
     for (O, D), count in anxiety_demand.items():
         fastest_time = float('inf')
@@ -916,12 +926,13 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
                 fastest_cs = cs_id
         if fastest_path:
             Pre_RQ.push([O, D, fastest_cs, fastest_path, 0, 0], fastest_time)
+            print(f"加入了{[O, D, fastest_cs, fastest_path, 0, 0]}", {fastest_time})
 
     (k, v) = Pre_RQ.pop()
     RQ.push(v, k)
 
     main_loop_cnt = 0
-    while any(demand.values()):
+    while any(demand.values()) or any(anxiety_demand.values()):
         main_loop_cnt += 1
         print(f"main_loop: {main_loop_cnt}")
 
@@ -934,8 +945,8 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
                         time_constraints[(O, D)].append(ii)
         print(f"time_constraints: {time_constraints}")
 
-        while RQ.top == [None, None]:
-            RQ.pop()
+        while Pre_RQ.top() == [None, None]:
+            Pre_RQ.pop()
 
         while RQ.top() is None:
             PP = Pre_RQ.pop()
@@ -951,7 +962,7 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
         P1 = Pre_RQ.top()
         print(f"Q1: {Q1}, P1: {P1}")
         if not P1:
-            P1 = [float('inf'), [-1, -1, -1, [], -1]]
+            P1 = [float('inf'), [-1, -1, -1, [], -1, -1]]
         if P1[0] < Q1[0]:
             Pre_RQ.pop()
             if check_path(P1, time_constraints):
@@ -972,17 +983,31 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
 
             print(f"Q1: {Q1}, Q2: {Q2}, PQ: {PQ}")
             loop_cnt = 0
-            while Q1[0] <= PQ[0] and demand[(O, D)] > 0:
-                loop_cnt += 1
-                print(f"loop_cnt: {loop_cnt}")
-                if check_path(Q1, time_constraints):
-                    dispatch_flow(Q1[1], current_time)
-                if demand[(O, D)] > 0:
-                    new_Q1_path, new_Q1_inform = update_path(Q1, time_constraints)
-                    Q1 = [new_Q1_path, new_Q1_inform]
-                    print(f"Q1: {Q1}, Q2: {Q2}, PQ: {PQ}")
-                elif demand[(O, D)] == 0:
-                    break
+            if Q1[1][-1] == 1:
+                while Q1[0] <= PQ[0] and demand[(O, D)] > 0:
+                    loop_cnt += 1
+                    print(f"loop_cnt: {loop_cnt}")
+                    if check_path(Q1, time_constraints):
+                        dispatch_flow(Q1[1], current_time)
+                    if demand[(O, D)] > 0:
+                        new_Q1_path, new_Q1_inform = update_path(Q1, time_constraints)
+                        Q1 = [new_Q1_path, new_Q1_inform]
+                        print(f"Q1: {Q1}, Q2: {Q2}, PQ: {PQ}")
+                    elif demand[(O, D)] == 0:
+                        break
+            else:
+                while Q1[0] <= PQ[0] and anxiety_demand[(O, D)] > 0:
+                    loop_cnt += 1
+                    print(f"loop_cnt: {loop_cnt}")
+                    if check_path(Q1, time_constraints):
+                        dispatch_flow(Q1[1], current_time)
+                    if demand[(O, D)] > 0:
+                        new_Q1_path, new_Q1_inform = update_path(Q1, time_constraints)
+                        Q1 = [new_Q1_path, new_Q1_inform]
+                        print(f"Q1: {Q1}, Q2: {Q2}, PQ: {PQ}")
+                    elif demand[(O, D)] == 0:
+                        break
+
 
             if demand[(O, D)] > 0:
                 if Q2:
@@ -990,7 +1015,7 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
                 else:
                     RQ.push(Q1[1], Q1[0])
 
-    return dispatch_result, traffic_flow
+    return dispatch_result, traffic_flow, anxiety_result
 
 
 def update_center_for_heuristic(center, dispatch_result, current_time, charge_v, anxiety_result=None):
