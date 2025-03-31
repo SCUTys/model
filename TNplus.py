@@ -909,7 +909,7 @@ class ChargeStation:
                 v_id = self.queue[p][0][0]
                 e = self.center.vehicles[v_id].E
                 e_max = self.center.vehicles[v_id].Emax
-                v_t = (e_max - e) / p * 60
+                v_t = (e_max * 0.9 - e) / p * 60
                 if len(extra_time) > 0:
                     v_t -= extra_time[0]  #有个隐患，万一前车留下的空余时间足够后来相应车直接充满可能会有负数，但谁充电总共只充不到1分钟啊
                     self.cost += p / 60 * extra_time[0]
