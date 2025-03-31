@@ -498,67 +498,69 @@ class PriorityQueue:
             return None
 
 
-def dijkstra_with_travel_time(graph, start, end, start_time, time_constraints):
+def dijkstra_with_travel_time(graph, start, end, departure_time, time_constraints):
     """
-    修改后的Dijkstra算法，接受时间点集合作为约束
+    实现带有时间限制的Dijkstra最短路径算法，不考虑等待。
 
     参数:
-    - graph: 图的邻接表表示 {'A': {'B': travel_time, ...}, ...}
-    - start: 起始节点
-    - end: 终止节点
-    - start_time: 起始时间
-    - time_constraints: 格式 {('u', 'v'): [time_point1, time_point2, ...]}
+        graph: 图的邻接表表示，如 {0: {1: 2, 2: 5}, ...}，其中键是节点，值是邻居节点及到达邻居节点的时间
+        start: 起点节点ID
+        end: 终点节点ID
+        departure_time: 出发时间点
+        time_constraints: 时间点限制，如 {(3, 4): [5], (0, 1): [6, 7]}，表示在特定时间点不能在特定路径上
 
     返回:
-    - 最短路径和总通行时长，如果没有路径，返回 None
+        (最短时间, 最短路径列表)，如果无法到达则返回(无穷大, [])
     """
-    # 初始化
-    shortest_paths = {node: (float('inf'), None, None) for node in graph}
-    shortest_paths[start] = (0, None, start_time)
-    priority_queue = [(0, start, start_time)]
+    # 优先队列，存储 (总花费时间, 当前节点, 当前时间, 已访问路径)
+    pq = [(0, start, departure_time, [start])]
 
-    while priority_queue:
-        current_distance, current_node, current_time = heapq.heappop(priority_queue)
+    # 关键修改: visited字典现在存储(节点, 到达时间)的组合，而不仅仅是节点
+    visited = {}
 
-        # 如果到达终点，返回路径
+    while pq:
+        total_cost, current_node, current_time, path = heapq.heappop(pq)
+
+        # 如果到达终点，返回总花费时间和最短路径
         if current_node == end:
-            path = []
-            while current_node:
-                path.append(current_node)
-                current_node = shortest_paths[current_node][1]
-            return path[::-1], current_distance
+            return path, total_cost
 
-        # 遍历相邻节点
+        # 关键修改: 检查(节点, 时间)组合是否已访问过，而不仅仅是节点
+        # 这允许我们在不同时间到达同一节点
+        key = (current_node, current_time)
+        if key in visited and total_cost >= visited[key]:
+            continue
+
+        # 记录访问状态
+        visited[key] = total_cost
+
+        # 遍历当前节点的所有邻居
         for neighbor, travel_time in graph[current_node].items():
-            # 计算到达下一节点的时间
-            next_time = current_time + travel_time
+            edge = (current_node, neighbor)
 
-            # 检查是否有约束时间点落在行驶区间内
-            if (current_node, neighbor) in time_constraints:
-                restricted_points = time_constraints[(current_node, neighbor)]
-                can_traverse = True
+            # 检查是否可以在当前时间通过这条边
+            can_pass = True
 
-                # 检查是否有时间点落在行驶时间段内（不含终点时间）
-                # 如果车辆刚好在约束时间点离开，这是允许的
-                # 如果车辆在约束时间点仍在道路上行驶，这是不允许的
-                for point in restricted_points:
-                    if current_time <= point < next_time:
-                        # 车辆在point时刻还在道路上行驶，不允许
-                        can_traverse = False
-                        break
-                    # next_time == point是允许的（车辆刚好在约束时间点离开）
-                    # point < current_time或point > next_time也是允许的（车辆在约束前已进入或约束后才进入）
+            # 检查边上的每个时间点
+            for t in range(current_time, current_time + travel_time):
+                if edge in time_constraints and t in time_constraints[edge]:
+                    can_pass = False
+                    break
 
-                if not can_traverse:
-                    continue  # 如果受到限制，跳过该边
+            if not can_pass:
+                continue
 
-            # 更新路径
-            distance = current_distance + travel_time
-            if distance < shortest_paths[neighbor][0]:
-                shortest_paths[neighbor] = (distance, current_node, next_time)
-                heapq.heappush(priority_queue, (distance, neighbor, next_time))
+            # 计算新的时间和花费
+            new_time = current_time + travel_time
+            new_cost = total_cost + travel_time
+            new_path = path + [neighbor]
 
-    return None, float('inf')  # 没有找到有效路径
+            # 添加新的状态到队列中
+            heapq.heappush(pq, (new_cost, neighbor, new_time, new_path))
+
+    # 如果无法到达终点，返回无穷大和空路径
+    return None, float('inf')
+
 
 
 def dijkstra_plus(graph, start, stopover, end, start_time, time_constraints):
@@ -579,22 +581,22 @@ def dijkstra_plus(graph, start, stopover, end, start_time, time_constraints):
     # 阶段1: 从起点到经停点
     path1, travel_time1 = dijkstra_with_travel_time(graph, start, stopover, start_time, time_constraints)
     if not path1:
-        return None, float('inf')  # 如果第一阶段不可达，则直接返回
+        return None,  float('inf'), float('inf'), float('inf')  # 如果第一阶段不可达，则直接返回
 
     # 阶段2: 从经停点到终点（起始时间为到达经停点的时间）
     arrival_time_at_stopover = start_time + travel_time1
     path2, travel_time2 = dijkstra_with_travel_time(graph, stopover, end, arrival_time_at_stopover, time_constraints)
     if not path2:
-        return None, float('inf')  # 如果第二阶段不可达，则直接返回
+        return None, float('inf'), float('inf'), float('inf')  # 如果第二阶段不可达，则直接返回
 
     # 合并两段路径
     total_path = path1 + path2[1:]  # 避免重复经停点
     total_travel_time = travel_time1 + travel_time2
 
-    return total_path, total_travel_time
+    return total_path, total_travel_time, travel_time1, travel_time2
 
 
-def dispatch_CCRP(t, center, OD_ratio, cs):
+def dispatch_CCRP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
 
     # Initialize the traffic flow table
     traffic_flow = center.edge_timely_estimated_load.copy()
@@ -604,6 +606,7 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
             flow[1] = math.ceil(flow[1])
 
     demand = OD_ratio.copy()
+    anxiety_demand = anxiety_OD_ratio.copy()
 
     Graph = {}
     edge_od_id = {}
@@ -624,27 +627,46 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
 
     # Initialize the result dictionary
     dispatch_result = {}
+    anxiety_result = {}
 
     # Dispatch the vehicles
     current_time = t
-    while any(demand.values()):
+    while any(demand.values()) or any(anxiety_demand.values()):
         fastest_time = float('inf')
         wait = -1
         fastest_path = None
         dispatch_od = None
         dispatch_cs = -1
+        anxiety = -2
         for (O, D), count in demand.items():
             if count == 0:
                 continue
             for cs_id in cs:
                 for drive_time in range(current_time, current_time + 8): #这里6是考虑到每条道路的长短随便设的
-                    total_path, total_travel_time = dijkstra_plus(Graph, O, cs_id, D, drive_time, time_constraints)
-                    if total_travel_time + drive_time - current_time < fastest_time:
+                    total_path, total_travel_time, charge_travel_time, _ = dijkstra_plus(Graph, O, cs_id, D, drive_time, time_constraints)
+                    if total_travel_time + drive_time - current_time < fastest_time and charge_travel_time * 0.15 * (1 + 0.1 / 3) < 4.2:
                         fastest_time = total_travel_time + drive_time - current_time
                         fastest_path = total_path
                         dispatch_od = (O, D)
                         dispatch_cs = cs_id
                         wait = drive_time - current_time
+                        anxiety = 1
+                        # print(fastest_time, fastest_path, dispatch_od, dispatch_cs, wait, anxiety)
+
+        for (O, D), count in anxiety_demand.items():
+            if count == 0:
+                continue
+            for cs_id in cs:
+                for drive_time in range(current_time, current_time + 8):
+                    total_path, total_travel_time, _, _ = dijkstra_plus(Graph, O, D, cs_id, drive_time, time_constraints)
+                    if total_travel_time + drive_time - current_time < fastest_time and total_travel_time * 0.15 * (1 + 0.1 / 3) < 6:
+                        fastest_time = total_travel_time + drive_time - current_time
+                        fastest_path = total_path
+                        dispatch_od = (O, D)
+                        dispatch_cs = cs_id
+                        wait = drive_time - current_time
+                        anxiety = 0
+                        # print(fastest_time, fastest_path, dispatch_od, dispatch_cs, wait, anxiety)
 
         if fastest_path:
             min_cap = float('inf')
@@ -661,6 +683,12 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
                         print(f"traffic_flow: {traffic_flow}")
                         print(f"path: {fastest_path}")
                         print(f"time_constraints: {time_constraints}")
+                    if cap == 0:
+                        print(f"这他妈是0？ (edge_o, edge_d): {(edge_o, edge_d)}, tt: {tt}, time_stamp: {tt}, cap: {cap},current_time: {current_time}")
+                        print(f"traffic_flow: {traffic_flow}")
+                        print(f"path: {fastest_path}")
+                        print(f"time_constraints: {time_constraints}")
+                        print(f"Graph: {Graph}")
                     if cap < min_cap:
                         occupancy.clear()
                     if cap <= min_cap:
@@ -671,7 +699,13 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
                 if time_stamp > 60: break
 
             current = current_time
-            min_cap = min(min_cap, demand[dispatch_od])
+            if anxiety == 1:
+                min_cap = min(min_cap, demand[dispatch_od])
+                demand[dispatch_od] -= min_cap
+            else:
+                min_cap = min(min_cap, anxiety_demand[dispatch_od])
+                anxiety_demand[dispatch_od] -= min_cap
+
             for p in range(len(fastest_path) - 1):
                 edge_o = fastest_path[p]
                 edge_d = fastest_path[p + 1]
@@ -686,24 +720,30 @@ def dispatch_CCRP(t, center, OD_ratio, cs):
                 if ttt not in time_constraints[od]:
                     time_constraints[od].append(ttt)
 
-            demand[dispatch_od] -= min_cap
+            if anxiety == 1:
+                if current_time + wait not in dispatch_result.keys():
+                    dispatch_result[current_time + wait] = {}
+                dispatch_result[current_time + wait][dispatch_od] = (min_cap, dispatch_cs, fastest_path)
+            else:
+                if current_time + wait not in anxiety_result.keys():
+                    anxiety_result[current_time + wait] = {}
+                anxiety_result[current_time + wait][dispatch_od] = (min_cap, dispatch_cs, fastest_path)
 
-            if current_time + wait not in dispatch_result.keys():
-                dispatch_result[current_time + wait] = {}
-            dispatch_result[current_time + wait][dispatch_od] = (min_cap, dispatch_cs, fastest_path)
-
-            print(demand, f"dispatch {dispatch_od} to {dispatch_cs} with {min_cap} vehicles at {current_time + wait}， path{fastest_path}")
+            print(demand)
+            print(anxiety_demand)
+            print(f"dispatch {dispatch_od} to {dispatch_cs} with {min_cap} vehicles at {current_time + wait}， path{fastest_path}, anxiety{anxiety}")
 
         else:
             current_time += 8
+            print(f"No path, current_time: {current_time}")
 
-    return dispatch_result, traffic_flow
+    return dispatch_result, traffic_flow, anxiety_result
 
 
-def dispatch_CCRPP(t, center, OD_ratio, cs):
+def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
 
     def dispatch_flow(inform, current_time):
-        [O, D, cs_id, path, wait] = inform
+        [O, D, cs_id, path, wait, anxiety] = inform
         min_cap = float('inf')
         occupancy = []
         time_stamp = wait + current_time
@@ -720,6 +760,13 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
                     print(f"path: {path}")
                     print(f"inform: {inform}")
                     print(f"time_constraints: {time_constraints}")
+                if cap == 0:
+                    print(f"这他妈是0？ (edge_o, edge_d): {(edge_o, edge_d)}, tt: {tt}, cap: {cap}")
+                    print(f"traffic_flow: {traffic_flow}")
+                    print(f"path: {path}")
+                    print(f"inform: {inform}")
+                    print(f"time_constraints: {time_constraints}")
+                    print(f"Graph: {Graph}")
                 if cap < min_cap:
                     occupancy.clear()
                 if cap <= min_cap:
@@ -730,8 +777,20 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
             if time_stamp > 60: break
 
         current = current_time
-        min_cap = min(min_cap, demand[(O, D)])
+        if anxiety == 1:
+            min_cap = min(min_cap, demand[(O, D)])
+            demand[(O, D)] -= min_cap
 
+            if current_time + wait not in dispatch_result.keys():
+                dispatch_result[current_time + wait] = {}
+            dispatch_result[current_time + wait][(O, D)] = (min_cap, cs_id, path)
+        else:
+            min_cap = min(min_cap, anxiety_demand[(O, D)])
+            anxiety_demand[(O, D)] -= min_cap
+
+            if current_time + wait not in anxiety_result.keys():
+                anxiety_result[current_time + wait] = {}
+            anxiety_result[current_time + wait][(O, D)] = (min_cap, cs_id, path)
 
         for p in range(len(path) - 1):
             edge_o = path[p]
@@ -746,31 +805,32 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
             if ttt not in time_constraints[od]:
                 time_constraints[od].append(ttt)
 
-        demand[(O, D)] -= min_cap
 
-        if current_time + wait not in dispatch_result.keys():
-            dispatch_result[current_time + wait] = {}
-        dispatch_result[current_time + wait][(O, D)] = (min_cap, cs_id, path)
 
         print(f"分配了{(O, D)}的{min_cap}辆车于{current_time + wait}, 路径为{path}")
         print(f"demand:{demand}")
 
         
     def check_path(inform, time_constraints, check_current = t, log = False):
-        [check_O, check_D, check_cs_id, c_path, check_wait] = inform[1]
+        [check_O, check_D, check_cs_id, cc_path, check_wait, check_anxiety] = inform[1]
         if log:
             print(f"inform: {inform}")
             print(f"使用的参数为{check_O, check_D, check_cs_id, check_current + check_wait, time_constraints}")
-        check_path, check_time = dijkstra_plus(Graph, check_O, check_cs_id, check_D, check_current + check_wait, time_constraints)
+
+        if check_anxiety == 1:
+            c_path, check_time = dijkstra_plus(Graph, check_O, check_cs_id, check_D, check_current + check_wait, time_constraints)
+        else:
+            c_path, check_time = dijkstra_plus(Graph, check_O, check_D, check_cs_id, check_current + check_wait, time_constraints)
+
         if log:
-            print(f"check_path: {check_path}, check_time: {check_time}")
+            print(f"check_path: {c_path}, check_time: {check_time}")
         if check_time + check_wait == inform[0]:
             return True
         else:
             return False
 
     def update_path(inform, time_constraints, update_current = t, log = False):
-        [update_O, update_D, u_cs_id, u_path, u_wait] = inform[1]
+        [update_O, update_D, u_cs_id, u_path, u_wait, update_anxiety] = inform[1]
         print(f"updating {update_O, update_D}")
         update_fastest_time = float('inf')
         update_dispatch_od = (update_O, update_D)
@@ -794,9 +854,6 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
         else:
             return None, None
 
-
-
-    # Initialize the traffic flow table
     traffic_flow = center.edge_timely_estimated_load.copy()
     for flow_set in traffic_flow.values():
         for flow in flow_set:
@@ -804,6 +861,7 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
             flow[1] = math.ceil(flow[1])
 
     demand = OD_ratio.copy()
+    anxiety_demand = anxiety_OD_ratio.copy()
 
     Graph = {}
     edge_od_id = {}
@@ -814,12 +872,20 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
         Graph[edge.origin][edge.destination] = round(edge.calculate_time())
 
     time_constraints = {}
+    for (O, D), flow in traffic_flow.items():
+        for i in range(t, len(flow)):
+            if flow[i][0] >= flow[i][1]:
+                if (O, D) not in time_constraints.keys():
+                    time_constraints[(O, D)] = []
+                time_constraints[(O, D)].append(i)
+
+    # Initialize the result dictionary
+    dispatch_result = {}
+    anxiety_result = {}
 
     RQ = PriorityQueue()
     Pre_RQ = PriorityQueue()
 
-    # Initialize the result dictionary
-    dispatch_result = {}
     current_time = t
     for (O, D), count in demand.items():
         fastest_time = float('inf')
@@ -828,13 +894,28 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
         if count == 0:
             continue
         for cs_id in cs:
-            total_path, total_travel_time = dijkstra_plus(Graph, O, cs_id, D, current_time, {})
-            if total_travel_time < fastest_time:
+            total_path, total_travel_time, charge_drive_time, _ = dijkstra_plus(Graph, O, cs_id, D, current_time, {})
+            if total_path and total_travel_time < fastest_time and charge_drive_time * 0.15 * (1 + 0.1 / 3) < 4.2:
                 fastest_time = total_travel_time
                 fastest_path = total_path
                 fastest_cs = cs_id
         if fastest_path:
-            Pre_RQ.push([O, D, fastest_cs, fastest_path, 0], fastest_time)
+            Pre_RQ.push([O, D, fastest_cs, fastest_path, 0, 1], fastest_time)
+
+    for (O, D), count in anxiety_demand.items():
+        fastest_time = float('inf')
+        fastest_path = None
+        fastest_cs = -1
+        if count == 0:
+            continue
+        for cs_id in cs:
+            total_path, total_travel_time, _, _ = dijkstra_plus(Graph, O, D, cs_id, current_time, {})
+            if total_path and total_travel_time < fastest_time and total_travel_time * 0.15 * (1 + 0.1 / 3) < 6:
+                fastest_time = total_travel_time
+                fastest_path = total_path
+                fastest_cs = cs_id
+        if fastest_path:
+            Pre_RQ.push([O, D, fastest_cs, fastest_path, 0, 0], fastest_time)
 
     (k, v) = Pre_RQ.pop()
     RQ.push(v, k)
@@ -912,17 +993,26 @@ def dispatch_CCRPP(t, center, OD_ratio, cs):
     return dispatch_result, traffic_flow
 
 
-def update_center_for_heuristic(center, dispatch_result, current_time, charge_v):
+def update_center_for_heuristic(center, dispatch_result, current_time, charge_v, anxiety_result=None):
     #dispatch_result[current_time + wait][(O, D)] = (min_cap, cs_id, path)
+
     vehicle_ids = {}
+    anxiety_vehicle_ids = {}
     index = 0
     for vehicle_id in charge_v:
         vehicle = center.vehicles[vehicle_id]
         O = vehicle.origin
         D = vehicle.destination
-        if (O, D) not in vehicle_ids.keys():
-            vehicle_ids[(O, D)] = []
-        vehicle_ids[(O, D)].append(vehicle_id)
+        if vehicle.anxiety == 1:
+            if (O, D) not in vehicle_ids.keys():
+                vehicle_ids[(O, D)] = []
+            vehicle_ids[(O, D)].append(vehicle_id)
+        else:
+            if (O, D) not in anxiety_vehicle_ids.keys():
+                anxiety_vehicle_ids[(O, D)] = []
+            anxiety_vehicle_ids[(O, D)].append(vehicle_id)
+
+
 
     edge_od_id = {}
     for edge in center.edges.values():
@@ -964,15 +1054,42 @@ def update_center_for_heuristic(center, dispatch_result, current_time, charge_v)
                     vehicle.delay = True
                     center.delay_vehicles[drive_time].append(vehicle.id)
 
+    for anxiety_drive_time in anxiety_result.keys():
+        for (O, D), (min_cap, cs_id, path) in anxiety_result[anxiety_drive_time].items():
+            cnt = 0
+            while cnt < min_cap and anxiety_vehicle_ids[(O, D)]:
+                vehicle_id = anxiety_vehicle_ids[(O, D)].pop(0)
+                vehicle = center.vehicles[vehicle_id]
+                vehicle.path = []
+                for i in range(len(path) - 1):
+                    vehicle.path.append(edge_od_id[(path[i], path[i + 1])])
+                vehicle.road = vehicle.path[0]
+                vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
+                vehicle.distance = center.edges[vehicle.road].length
+                vehicle.speed = center.edges[vehicle.road].calculate_drive()
+                vehicle.charge = (cs_id, 120)
+                vehicle.destination = cs_id
 
+                flow_ind = anxiety_drive_time
+                for path_ind in range(0, len(vehicle.path)):
+                    edge_id = vehicle.path[path_ind]
+                    edge_o = center.edges[edge_id].origin
+                    edge_d = center.edges[edge_id].destination
+                    time_interval = round(center.edges[edge_id].calculate_time())
+                    # print(f"edge_id: {edge_id}, edge_o: {edge_o}, edge_d: {edge_d}, time_interval: {time_interval}")
+                    while time_interval >= 1 and flow_ind <= 60:
+                        center.edge_timely_estimated_load[(edge_o, edge_d)][flow_ind][0] += 1
+                        time_interval -= 1
+                        flow_ind += 1
 
-
-
-
-
-
-
-
+                if anxiety_drive_time == current_time:
+                    center.edges[vehicle.road].capacity["all"] = center.solve_tuple(center.edges[vehicle.road].capacity["all"], 1)
+                    center.edges[vehicle.road].capacity["charge"] = center.solve_tuple(center.edges[vehicle.road].capacity["charge"], 1)
+                    center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                    vehicle.drive()
+                else:
+                    vehicle.delay = True
+                    center.delay_vehicles[anxiety_drive_time].append(vehicle.id)
 
 
 def dispatch_CASPER(center):

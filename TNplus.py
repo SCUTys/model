@@ -101,7 +101,7 @@ class DispatchCenter:
         #                 sum_road += length * time
         return sum_road
 
-    def dispatch_promax(self, t, center, real_path_results, charge_v, charge_od, num_population, num_cs, lmp_dict, max_iter, OD_ratio):
+    def dispatch_promax(self, t, center, real_path_results, charge_v, charge_od, num_population, num_cs, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio = None):
 
         # #NSGA2个体调度
         # cs_result, cs_for_choice, real_cs_ids = EAalgorithm.dispatch_cs_nsga2(center, real_path_results, charge_v, charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter)
@@ -138,12 +138,12 @@ class DispatchCenter:
         print(5198186941684986189)
         print(center.edge_timely_estimated_load)
         start = time.time()
-        # dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs)
-        dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs)
+        dispatch_result, traffic_flow, anxiety_result = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
+        # dispatch_result, traffic_flow = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
         end = time.time()
         self.dispatch_time_cnt.append(end - start)
         print(f"Dispatching finished in {end - start} seconds")
-        EAalgorithm.update_center_for_heuristic(center, dispatch_result, t, charge_v)
+        EAalgorithm.update_center_for_heuristic(center, dispatch_result, t, charge_v, anxiety_result)
 
 
 
@@ -502,6 +502,7 @@ class Vehicle:
         self.wait_time = -1
         self.log = log
         self.delay = False
+        self.anxiety = -1 #-1是直接到达终点，0是到达终点但在焦虑范围内（到终点后规划路径去充电），1是到达终点前就要充电
 
     def drive(self, rate=1):
         """

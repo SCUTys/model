@@ -21,7 +21,7 @@ t = 1  #min
 T = 10  #min
 T_pdn = 3 * T  #min
 roadmap = 'SF'  #目前支持SF、EMA和PY
-od_no = '3' #目前支持空字符串、1和2
+od_no = '2' #目前支持空字符串、1和2
 csv_net_path = 'data/' + roadmap + '/' + roadmap + '_net.csv'
 csv_od_path = 'data/' + roadmap + '/' + roadmap + '_od' + od_no +'.csv'
 node = {'SF': 24, 'EMA': 76, 'PY': 167}
@@ -398,10 +398,9 @@ if __name__ == "__main__":
             if all_log:
                 print("初始化充电站")
             for j in TNplus.cs:
-                center.charge_stations[j] = TNplus.ChargeStation(j, center, {}, {50: [], 120: []}, {50: [], 120: []},
-                                                                 25000, {120: 20000},
-                                                                 {120: (0, 0)}, {120: 0},
-                                                                 False)  #规范充电桩功率为kw
+                center.charge_stations[j] = TNplus.ChargeStation(j, center, {}, {150: [], 300: []}, {150: [], 300: []},
+                                                                 25000, {300: 20000},
+                                                                 {300: (0, 0)}, {300: 0},False)
 
         if i % 3 == 1 or i == 1:
             print("加入新车")
@@ -418,7 +417,7 @@ if __name__ == "__main__":
                 total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
                 cs.cost = 0
             # print(total_charge_cost)
-            PDNplus.update_load(pdn, total_charge_cost, 3 * t / 60 * 6)
+            PDNplus.update_load(pdn, total_charge_cost, 3 * t / 60 * 6 * 2)
             PDNplus.run(pdn, 100)
             lmp_dict = pdn.res_bus['lam_p'].to_dict()
             # print(lmp_dict)
@@ -429,6 +428,8 @@ if __name__ == "__main__":
                 # print(center.calculate_lost())
 
             for (O, D) in OD:
+                #对于od2来说，设置车的电量，必须途中充电就4.2， 只是焦虑区间就6，直达就随便了（直达占比就是rate， 其他两个1:1分配或随机数得了）
+                #od3等下再算，不过由于选的od距离平均下来反而更近了，其实这个数也可以（）
                 choice = path_results[(O, D)][0]
                 if len(choice) > 1:
                     path = choice[i % len(choice)]
@@ -443,7 +444,7 @@ if __name__ == "__main__":
                         next = -1
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
                                                  true_path[0], next,
-                                                 true_path, 60, random.randint(48, 54), 0.05, 0.15, 0, {}, 1)  #电能单位为千瓦时
+                                                 true_path, 60, random.randint(12, 48), 0.05, 0.15, 0, {}, 1)  #电能单位为千瓦时
 
                     center.vehicles.append(new_vehicle)
 
@@ -470,6 +471,9 @@ if __name__ == "__main__":
                     else:
                         charge_num -= 1
                         charge_v.append(v_index)
+                        rr = random.randint(0, 1)
+                        new_vehicle.E = 4.2 if rr == 0 else 6
+                        new_vehicle.anxiety = 1 if rr == 0 else 0
                         charge_od.append((O, D))
                         center.charge_id.append(v_index)
 
@@ -514,6 +518,9 @@ if __name__ == "__main__":
                     else:
                         charge_num -= 1
                         charge_v.append(v_index)
+                        rr = random.randint(0, 1)
+                        new_vehicle.E = 4.2 if rr == 0 else 6
+                        new_vehicle.anxiety = 1 if rr == 0 else 0
                         charge_od.append((O, D))
                         center.charge_id.append(v_index)
 
@@ -564,8 +571,8 @@ if __name__ == "__main__":
             # print(wait_times_list)
             # print(1145141919810)
             # print(path_results)
-            print(11223344556677889900998877665544332211)
-            print(real_path_results)
+            # print(11223344556677889900998877665544332211)
+            # print(real_path_results)
             # print(666666666666666666666)
 
 
@@ -585,13 +592,28 @@ if __name__ == "__main__":
             print("最后一道检测，数据预处理是这样的，硬控我")
             print(len(charge_v))
             cnt_charge_od = {}
-            for (o, d) in charge_od:
-                if (o, d) in cnt_charge_od:
-                    cnt_charge_od[(o, d)] += 1
+            cnt_anxiety_charge_od = {}
+            for iiiiiiiiii in range(len(charge_v)):
+                charge_vehicle = center.vehicles[charge_v[iiiiiiiiii]]
+                if charge_vehicle.anxiety == 1:
+                    if (charge_od[iiiiiiiiii][0], charge_od[iiiiiiiiii][1]) in cnt_anxiety_charge_od:
+                        cnt_anxiety_charge_od[(charge_od[iiiiiiiiii][0], charge_od[iiiiiiiiii][1])] += 1
+                    else:
+                        cnt_anxiety_charge_od[(charge_od[iiiiiiiiii][0], charge_od[iiiiiiiiii][1])] = 1
                 else:
-                    cnt_charge_od[(o, d)] = 1
+                    if (charge_od[iiiiiiiiii][0], charge_od[iiiiiiiiii][1]) in cnt_charge_od:
+                        cnt_charge_od[(charge_od[iiiiiiiiii][0], charge_od[iiiiiiiiii][1])] += 1
+                    else:
+                        cnt_charge_od[(charge_od[iiiiiiiiii][0], charge_od[iiiiiiiiii][1])] = 1
+
+            # for (o, d) in charge_od:
+            #     if (o, d) in cnt_charge_od:
+            #         cnt_charge_od[(o, d)] += 1
+            #     else:
+            #         cnt_charge_od[(o, d)] = 1
             print(cnt_charge_od)
-            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 30, 4, lmp_dict, 20, cnt_charge_od)
+            print(cnt_anxiety_charge_od)
+            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 30, 4, lmp_dict, 20, cnt_charge_od, cnt_anxiety_charge_od)
 
 
         for cs in center.charge_stations.values():
