@@ -417,7 +417,7 @@ if __name__ == "__main__":
                 total_charge_cost[f"EVCS {cs.id}"] = cs.cost / 60 / 1000
                 cs.cost = 0
             # print(total_charge_cost)
-            PDNplus.update_load(pdn, total_charge_cost, 3 * t / 60 * 6 * 2)
+            PDNplus.update_load(pdn, total_charge_cost, 3 * t / 60 * 6 * 2 * 2)
             PDNplus.run(pdn, 100)
             lmp_dict = pdn.res_bus['lam_p'].to_dict()
             # print(lmp_dict)
