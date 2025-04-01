@@ -937,6 +937,8 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
     while any(demand.values()) or any(anxiety_demand.values()):
         main_loop_cnt += 1
         print(f"main_loop: {main_loop_cnt}")
+        print(f"demand: {demand}")
+        print(f"anxiety_demand: {anxiety_demand}")
 
         for (O, D), flow in traffic_flow.items():
             for ii in range(t, len(flow)):
@@ -1003,6 +1005,14 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
                         print(f"Q1: {Q1}, Q2: {Q2}, PQ: {PQ}")
                     elif demand[(O, D)] == 0:
                         break
+
+                if demand[(O, D)] > 0:
+                    if Q2:
+                        Pre_RQ.push(Q1[1], Q1[0])
+                    else:
+                        RQ.push(Q1[1], Q1[0])
+
+
             else:
                 while Q1[0] <= PQ[0] and anxiety_demand[(O, D)] > 0:
                     loop_cnt += 1
@@ -1016,12 +1026,11 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
                     elif anxiety_demand[(O, D)] == 0:
                         break
 
-
-            if demand[(O, D)] > 0:
-                if Q2:
-                    Pre_RQ.push(Q1[1], Q1[0])
-                else:
-                    RQ.push(Q1[1], Q1[0])
+                if anxiety_demand[(O, D)] > 0:
+                    if Q2:
+                        Pre_RQ.push(Q1[1], Q1[0])
+                    else:
+                        RQ.push(Q1[1], Q1[0])
 
     return dispatch_result, traffic_flow, anxiety_result
 
