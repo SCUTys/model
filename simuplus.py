@@ -613,7 +613,7 @@ if __name__ == "__main__":
             #         cnt_charge_od[(o, d)] = 1
             print(cnt_charge_od)
             print(cnt_anxiety_charge_od)
-            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 20, 4, lmp_dict, 10, cnt_charge_od, cnt_anxiety_charge_od)
+            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 25, 4, lmp_dict, 12, cnt_charge_od, cnt_anxiety_charge_od)
 
 
         for cs in center.charge_stations.values():

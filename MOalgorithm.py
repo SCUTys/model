@@ -192,10 +192,10 @@ def cube_selection(REP, n, num_population):
     fit1_values = [rep[0] for rep in REP]
     fit2_values = [rep[1] for rep in REP]
 
-    min_fit1 = min(fit1_values) - 0.1
-    max_fit1 = max(fit1_values) + 0.1
-    min_fit2 = min(fit2_values) - 0.1
-    max_fit2 = max(fit2_values) + 0.1
+    min_fit1 = min(fit1_values) - 0.01 * (max(fit1_values) - min(fit1_values))
+    max_fit1 = max(fit1_values) + 0.01 * (max(fit1_values) - min(fit1_values))
+    min_fit2 = min(fit2_values) - 0.01 * (max(fit2_values) - min(fit2_values))
+    max_fit2 = max(fit2_values) + 0.01 * (max(fit2_values) - min(fit2_values))
 
     # 避免除零错误
     if max_fit1 == min_fit1:
@@ -335,10 +335,10 @@ def update_REP(REP, population, OD_ratio, anxiety_OD_ratio, cs_for_choice, anxie
         fit1_values = [rep[0] for rep in REP]
         fit2_values = [rep[1] for rep in REP]
 
-        min_fit1 = min(fit1_values) - 0.1
-        max_fit1 = max(fit1_values) + 0.1
-        min_fit2 = min(fit2_values) - 0.1
-        max_fit2 = max(fit2_values) + 0.1
+        min_fit1 = min(fit1_values) - 0.01 * (max(fit1_values) - min(fit1_values))
+        max_fit1 = max(fit1_values) + 0.01 * (max(fit1_values) - min(fit1_values))
+        min_fit2 = min(fit2_values) - 0.01 * (max(fit2_values) - min(fit2_values))
+        max_fit2 = max(fit2_values) + 0.01 * (max(fit2_values) - min(fit2_values))
 
         # 避免除零错误
         if max_fit1 == min_fit1:
@@ -383,7 +383,7 @@ def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_popula
     cs_for_choice = process_cs(OD_ratio, cs, num_cs, od_length)
     anxiety_cs_for_choice = process_cs(anxiety_OD_ratio, cs, num_cs, od_length, 0)
     REP = []
-    REP_max = num_population / 5
+    REP_max = num_population
     front, fit1, fit2 = fast_non_dominated_sorting(population, OD_ratio, anxiety_OD_ratio, cs_for_choice, anxiety_cs_for_choice, od_length, od_wait, cs_bus, lmp_dict, cs)
     print('Initialized fast non dominated sorting finished')
     for i in front[0]:
@@ -668,4 +668,7 @@ def dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, r
 
             od_idx += 1
 
+    print(f"best_solution: {best_solution}")
+    print(REP[0])
+    print(REP[-1])
     return dispatch_result, anxiety_result
