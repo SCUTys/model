@@ -445,8 +445,8 @@ def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_popula
         print("p_REP")
         velocity = update_velocity(population, velocity, p_memory, p_REP, 0.4)
         print("velocity updated")
-        population = mutation(population, 0.5, loop_cnt, max_iter)
-        print("mutation finished")
+        # population = mutation(population, 0.5, loop_cnt, max_iter)
+        # print("mutation finished")
         population = update_position(population, velocity)
         print("population updated")
         REP = update_REP(REP, population, OD_ratio, anxiety_OD_ratio, cs_for_choice, anxiety_cs_for_choice, od_length,
