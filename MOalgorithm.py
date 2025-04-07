@@ -401,7 +401,253 @@ def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_popula
                     (fit1_val < p_memory[i][0] and fit2_val <= p_memory[i][1])):
                 p_memory[i] = (fit1_val, fit2_val, population[i])
 
+    REP = sorted(REP, key=lambda x: x[0])
+    return REP, cs_for_choice, anxiety_cs_for_choice
 
-    return REP
 
+def dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, real_path_results,
+                               anxiety_OD_ratio, anxiety_cs_for_choice=None):
+    """
+    基于MOPSO算法的优化结果分配车辆到充电站，并使用轮盘赌方法决定每辆车的充电站
 
+    Args:
+        center: 调度中心
+        REP: MOPSO算法的非支配解集，按fit1值升序排序
+        charge_v: 需要充电的车辆ID列表
+        charge_od: OD对到车辆ID的映射
+        cs_for_choice: 普通车辆每个OD对可选择的充电站列表
+        real_path_results: 包含最短路径信息的字典
+        anxiety_cs_for_choice: 焦虑车辆每个OD对可选择的充电站列表
+
+    Returns:
+        dispatch_result: 普通车辆的分配结果字典
+        anxiety_result: 焦虑车辆的分配结果字典
+    """
+
+    # 使用fit1值最小的解作为最优解
+    best_solution = REP[0][2]  # 从(fit1, fit2, solution)元组中提取solution
+
+    # 创建从节点对到边ID的映射
+    edge_od_id = {}
+    for edge in center.edges.values():
+        edge_od_id[(edge.origin, edge.destination)] = edge.id
+
+    # 准备结果容器
+    dispatch_result = {}
+    anxiety_result = {}
+    current_time = 0  # 所有车辆同时出发
+
+    # 按OD对和车辆类型分组
+    normal_vehicles = {}  # 普通车辆: {od_pair: [vehicle_ids]}
+    anxiety_vehicles = {}  # 焦虑车辆: {od_pair: [vehicle_ids]}
+
+    for v_id in charge_v:
+        vehicle = center.vehicles[v_id]
+        od_pair = (vehicle.origin, vehicle.destination)
+
+        if vehicle.anxiety == 1:  # 普通车辆
+            if od_pair not in normal_vehicles:
+                normal_vehicles[od_pair] = []
+            normal_vehicles[od_pair].append(v_id)
+        else:  # 焦虑车辆
+            if od_pair not in anxiety_vehicles:
+                anxiety_vehicles[od_pair] = []
+            anxiety_vehicles[od_pair].append(v_id)
+
+    # 处理普通车辆
+    od_idx = 0
+    for od in OD_ratio.keys():
+        if od not in cs_for_choice:
+            od_idx += 1
+            continue
+
+        # 获取该OD对的充电站概率分布
+        cs_probs = best_solution[od_idx]
+
+        # 计算累积概率，用于轮盘赌选择
+        cum_probs = []
+        curr_sum = 0
+        for prob in cs_probs:
+            curr_sum += prob
+            cum_probs.append(curr_sum)
+
+        # 为每个车辆通过轮盘赌选择充电站
+        cs_assigned_vehicles = {cs_id: [] for cs_id in cs_for_choice[od]}
+
+        for vehicle_id in normal_vehicles[od]:
+            # 轮盘赌选择
+            r = random.random()
+            selected_cs_index = 0
+
+            for i, threshold in enumerate(cum_probs):
+                if r <= threshold:
+                    selected_cs_index = i
+                    break
+
+            # 获取所选充电站
+            if selected_cs_index < len(cs_for_choice[od]):
+                cs_id = cs_for_choice[od][selected_cs_index]
+                cs_assigned_vehicles[cs_id].append(vehicle_id)
+
+        # 为每个充电站的车辆准备路径和分配结果
+        for cs_id, vehicle_ids in cs_assigned_vehicles.items():
+            if not vehicle_ids:
+                continue
+
+            # 获取实际路径从real_path_results
+            # 普通车辆：起点 -> 充电站 -> 终点
+            o_cs_path = real_path_results.get((od[0], cs_id), [])
+            cs_d_path = real_path_results.get((cs_id, od[1]), [])
+            if not o_cs_path or not cs_d_path:
+                continue  # 如果没有找到路径，跳过
+
+            # 构建完整节点路径：起点->充电站->终点
+            o_cs_nodes = [o_cs_path[0][0]] + [step[3] for step in o_cs_path]
+            cs_d_nodes = [cs_d_path[0][0]] + [step[3] for step in cs_d_path]
+
+            # 避免重复节点（充电站）
+            full_path = o_cs_nodes + cs_d_nodes[1:]
+
+            # 存储到分配结果
+            if current_time not in dispatch_result:
+                dispatch_result[current_time] = {}
+
+            dispatch_result[current_time][od] = (len(vehicle_ids), cs_id, full_path)
+
+            # 更新车辆属性并开始行驶
+            for vehicle_id in vehicle_ids:
+                vehicle = center.vehicles[vehicle_id]
+
+                # 设置车辆路径 - 将节点路径转换为边路径
+                vehicle.path = []
+                for i in range(len(full_path) - 1):
+                    if (full_path[i], full_path[i + 1]) in edge_od_id:
+                        vehicle.path.append(edge_od_id[(full_path[i], full_path[i + 1])])
+
+                if not vehicle.path:
+                    continue  # 如果路径为空，跳过
+
+                # 设置初始道路和下一道路
+                vehicle.road = vehicle.path[0]
+                vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
+
+                # 设置距离和速度
+                vehicle.distance = center.edges[vehicle.road].length
+                vehicle.speed = center.edges[vehicle.road].calculate_drive()
+
+                # 设置充电站
+                vehicle.charge = (cs_id, 300)  # 300秒充电时间
+
+                # 更新容量计数
+                center.edges[vehicle.road].capacity["all"] = center.solve_tuple(
+                    center.edges[vehicle.road].capacity["all"], 1)
+                center.edges[vehicle.road].capacity["charge"] = center.solve_tuple(
+                    center.edges[vehicle.road].capacity["charge"], 1)
+                if vehicle.next_road != -1:
+                    center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
+                        center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+
+                # 开始行驶
+                vehicle.drive()
+
+        od_idx += 1
+
+    # 处理焦虑车辆
+    if anxiety_cs_for_choice:
+        for od in anxiety_OD_ratio.keys():
+            if od not in anxiety_cs_for_choice:
+                od_idx += 1
+                continue
+
+            # 获取该OD对的充电站概率分布
+            cs_probs = best_solution[od_idx]
+
+            # 计算累积概率，用于轮盘赌选择
+            cum_probs = []
+            curr_sum = 0
+            for prob in cs_probs:
+                curr_sum += prob
+                cum_probs.append(curr_sum)
+
+            # 为每个车辆通过轮盘赌选择充电站
+            cs_assigned_vehicles = {cs_id: [] for cs_id in anxiety_cs_for_choice[od]}
+
+            for vehicle_id in anxiety_vehicles[od]:
+                # 轮盘赌选择
+                r = random.random()
+                selected_cs_index = 0
+
+                for i, threshold in enumerate(cum_probs):
+                    if r <= threshold:
+                        selected_cs_index = i
+                        break
+
+                # 获取所选充电站
+                if selected_cs_index < len(anxiety_cs_for_choice[od]):
+                    cs_id = anxiety_cs_for_choice[od][selected_cs_index]
+                    cs_assigned_vehicles[cs_id].append(vehicle_id)
+
+            # 为每个充电站的车辆准备路径和分配结果
+            for cs_id, vehicle_ids in cs_assigned_vehicles.items():
+                if not vehicle_ids:
+                    continue
+
+                # 获取实际路径从real_path_results
+                # 焦虑车辆：起点 -> 终点 -> 充电站
+                o_d_path = real_path_results.get((od[0], od[1]), [])
+                d_cs_path = real_path_results.get((od[1], cs_id), [])
+                if not o_d_path or not d_cs_path:
+                    continue  # 如果没有找到路径，跳过
+
+                # 构建完整节点路径：起点->终点->充电站
+                o_d_nodes = [o_d_path[0][0]] + [step[3] for step in o_d_path]
+                d_cs_nodes = [d_cs_path[0][0]] + [step[3] for step in d_cs_path]
+
+                # 避免重复节点（终点）
+                full_path = o_d_nodes + d_cs_nodes[1:]
+
+                # 存储到分配结果
+                if current_time not in anxiety_result:
+                    anxiety_result[current_time] = {}
+
+                anxiety_result[current_time][od] = (len(vehicle_ids), cs_id, full_path)
+
+                # 更新车辆属性并开始行驶
+                for vehicle_id in vehicle_ids:
+                    vehicle = center.vehicles[vehicle_id]
+
+                    # 设置车辆路径 - 将节点路径转换为边路径
+                    vehicle.path = []
+                    for i in range(len(full_path) - 1):
+                        if (full_path[i], full_path[i + 1]) in edge_od_id:
+                            vehicle.path.append(edge_od_id[(full_path[i], full_path[i + 1])])
+
+                    if not vehicle.path:
+                        continue  # 如果路径为空，跳过
+
+                    # 设置初始道路和下一道路
+                    vehicle.road = vehicle.path[0]
+                    vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
+
+                    # 设置距离和速度
+                    vehicle.distance = center.edges[vehicle.road].length
+                    vehicle.speed = center.edges[vehicle.road].calculate_drive()
+
+                    # 设置充电站
+                    vehicle.charge = (cs_id, 300)  # 300秒充电时间
+
+                    # 更新容量计数
+                    center.edges[vehicle.road].capacity["all"] = center.solve_tuple(
+                        center.edges[vehicle.road].capacity["all"], 1)
+                    center.edges[vehicle.road].capacity["charge"] = center.solve_tuple(
+                        center.edges[vehicle.road].capacity["charge"], 1)
+                    if vehicle.next_road != -1:
+                        center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
+                            center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+
+                    # 开始行驶
+                    vehicle.drive()
+
+            od_idx += 1
+
+    return dispatch_result, anxiety_result
