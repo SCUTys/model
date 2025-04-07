@@ -6,6 +6,7 @@ import csv
 import ast
 import sympy as sp
 import EAalgorithm
+import MOalgorithm
 import time
 from scipy.special import gammaln
 
@@ -135,17 +136,23 @@ class DispatchCenter:
         #     vehicle.drive()
 
         #CCRP、CCRPP
-        print(5198186941684986189)
-        print(center.edge_timely_estimated_load)
-        start = time.time()
-        # dispatch_result, traffic_flow, anxiety_result = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
-        dispatch_result, traffic_flow, anxiety_result = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
-        end = time.time()
-        self.dispatch_time_cnt.append(end - start)
-        print(f"Dispatching finished in {end - start} seconds")
-        EAalgorithm.update_center_for_heuristic(center, dispatch_result, t, charge_v, anxiety_result)
+        # print(5198186941684986189)
+        # print(center.edge_timely_estimated_load)
+        # start = time.time()
+        # # dispatch_result, traffic_flow, anxiety_result = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
+        # dispatch_result, traffic_flow, anxiety_result = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
+        # end = time.time()
+        # self.dispatch_time_cnt.append(end - start)
+        # print(f"Dispatching finished in {end - start} seconds")
+        # EAalgorithm.update_center_for_heuristic(center, dispatch_result, t, charge_v, anxiety_result)
 
 
+        #MOPSO
+        print(231342767)
+        REP, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MOPSO(center, real_path_results, charge_v,
+                        charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio)
+        MOalgorithm.dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, real_path_results,
+                                   anxiety_OD_ratio, anxiety_cs_for_choice)
 
 
 

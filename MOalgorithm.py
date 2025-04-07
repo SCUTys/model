@@ -247,8 +247,17 @@ def cube_selection(REP, n, num_population):
     return selected_particle[2]  # 返回粒子本身(不包括适应度值和索引)
 
 
-def update_velocity(population, velocity, p_best, p_REP, w):
+def update_velocity(population, velocity, p_memory, p_REP, w):
+    # print(population)
+    # print(len(population), len(population[0]), len(population[0][0]))
+    # print(velocity)
+    # print(len(velocity), len(velocity[0]), len(velocity[0][0]))
+    # print(p_REP)
+    # print(len(p_REP), len(p_REP[0]))
     for i in range(len(population)):
+        p_best = p_memory[i][2]
+        # print(p_best)
+        # print(len(p_best), len(p_best[0]))
         for j in range(len(population[i])):
             for k in range(len(population[i][j])):
                 r1 = random.random()
@@ -376,18 +385,26 @@ def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_popula
     REP = []
     REP_max = num_population / 5
     front, fit1, fit2 = fast_non_dominated_sorting(population, OD_ratio, anxiety_OD_ratio, cs_for_choice, anxiety_cs_for_choice, od_length, od_wait, cs_bus, lmp_dict, cs)
+    print('Initialized fast non dominated sorting finished')
     for i in front[0]:
         REP.append((fit1[i], fit2[i], population[i]))
+    print('Initialized REP finished')
     p_memory = []
     for i in range(num_population):
         p_memory.append((fit1[i], fit2[i], population[i]))
+    print('Initialized p_memory finished')
 
     for loop_cnt in range(max_iter):
+        print("第{}代".format(loop_cnt))
         p_REP = cube_selection(REP, 3, num_population)
+        print("p_REP")
         velocity = update_velocity(population, velocity, p_memory, p_REP, 0.4)
+        print("velocity updated")
         population = update_position(population, velocity)
+        print("population updated")
         REP = update_REP(REP, population, OD_ratio, anxiety_OD_ratio, cs_for_choice, anxiety_cs_for_choice, od_length,
                          od_wait, cs_bus, lmp_dict, cs, REP_max)
+        print("REP updated")
 
         # 更新个体最优
         for i in range(num_population):
@@ -406,7 +423,7 @@ def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_popula
 
 
 def dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, real_path_results,
-                               anxiety_OD_ratio, anxiety_cs_for_choice=None):
+                               anxiety_OD_ratio, anxiety_cs_for_choice):
     """
     基于MOPSO算法的优化结果分配车辆到充电站，并使用轮盘赌方法决定每辆车的充电站
 
@@ -502,8 +519,8 @@ def dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, r
                 continue  # 如果没有找到路径，跳过
 
             # 构建完整节点路径：起点->充电站->终点
-            o_cs_nodes = [o_cs_path[0][0]] + [step[3] for step in o_cs_path]
-            cs_d_nodes = [cs_d_path[0][0]] + [step[3] for step in cs_d_path]
+            o_cs_nodes = o_cs_path[0][0]
+            cs_d_nodes = cs_d_path[0][0]
 
             # 避免重复节点（充电站）
             full_path = o_cs_nodes + cs_d_nodes[1:]
@@ -548,6 +565,7 @@ def dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, r
                         center.edges[vehicle.road].capacity[vehicle.next_road], 1)
 
                 # 开始行驶
+                print(f"Vehicle {vehicle_id} assigned to CS {cs_id} with path {vehicle.path}")
                 vehicle.drive()
 
         od_idx += 1
@@ -600,8 +618,8 @@ def dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, r
                     continue  # 如果没有找到路径，跳过
 
                 # 构建完整节点路径：起点->终点->充电站
-                o_d_nodes = [o_d_path[0][0]] + [step[3] for step in o_d_path]
-                d_cs_nodes = [d_cs_path[0][0]] + [step[3] for step in d_cs_path]
+                o_d_nodes = o_d_path[0][0]
+                d_cs_nodes = d_cs_path[0][0]
 
                 # 避免重复节点（终点）
                 full_path = o_d_nodes + d_cs_nodes[1:]
