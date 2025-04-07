@@ -70,9 +70,54 @@ def initialize_population(num_population, num_cs, od_num):
         population.append(individual)
     return population, velocity
 
-def mutation(individual, mutation_rate):
 
-    return individual
+def mutation(population, mutation_rate, current_iter, max_iter):
+    # 计算当前迭代的变异概率
+    mutation_prob = (1 - current_iter / max_iter) ** (5 / mutation_rate)
+
+    for i in range(len(population)):
+        if random.random() < mutation_prob:
+            # 随机选择一个子列表
+            sub_list_idx = random.randint(0, len(population[i]) - 1)
+            sub_list = population[i][sub_list_idx]
+
+            # 随机选择子列表中的一项进行变异
+            mutation_idx = random.randint(0, len(sub_list) - 1)
+
+            # 确定上下界
+            upper_bound = min(1, sub_list[mutation_idx] + mutation_prob)
+            lower_bound = max(0, sub_list[mutation_idx] - mutation_prob)
+
+            # 在上下界间随机生成一个新值
+            new_value = random.uniform(lower_bound, upper_bound)
+
+            # 保存原始值，用于计算调整系数
+            original_value = sub_list[mutation_idx]
+
+            # 替换为新值
+            sub_list[mutation_idx] = new_value
+
+            # 计算其他项需要调整的总量
+            adjust_total = 1 - new_value
+
+            # 计算其他项的原始总和
+            other_sum = sum(sub_list) - new_value
+
+            # 如果其他项总和为0，均匀分配
+            if other_sum <= 1e-10:
+                other_count = len(sub_list) - 1
+                if other_count > 0:  # 防止除以零
+                    for j in range(len(sub_list)):
+                        if j != mutation_idx:
+                            sub_list[j] = adjust_total / other_count
+            else:
+                # 按比例调整其他项
+                scale_factor = adjust_total / other_sum
+                for j in range(len(sub_list)):
+                    if j != mutation_idx:
+                        sub_list[j] *= scale_factor
+
+    return population
 
 def f1(individual, OD_ratio, anxiety_OD_ratio, od_length, cs_for_choice, anxiety_cs_for_choice):
     f1_value = 0
@@ -400,6 +445,8 @@ def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_popula
         print("p_REP")
         velocity = update_velocity(population, velocity, p_memory, p_REP, 0.4)
         print("velocity updated")
+        population = mutation(population, 0.5, loop_cnt, max_iter)
+        print("mutation finished")
         population = update_position(population, velocity)
         print("population updated")
         REP = update_REP(REP, population, OD_ratio, anxiety_OD_ratio, cs_for_choice, anxiety_cs_for_choice, od_length,
