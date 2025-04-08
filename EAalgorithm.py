@@ -676,7 +676,7 @@ def dispatch_CCRP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
                 edge_o = fastest_path[p]
                 edge_d = fastest_path[p + 1]
                 time_interval = Graph[edge_o][edge_d]
-                for tt in range(time_stamp, min(time_stamp + time_interval, 60)):
+                for tt in range(time_stamp, min(time_stamp + time_interval, 100)):
                     cap = traffic_flow[(edge_o, edge_d)][tt][1] - traffic_flow[(edge_o, edge_d)][tt][0]
                     if cap < 0:
                         print(f"这他妈是负数？ (edge_o, edge_d): {(edge_o, edge_d)}, tt: {tt}, time_stamp: {tt}, cap: {cap},current_time: {current_time}")
@@ -752,7 +752,7 @@ def dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio=None):
             edge_o = path[p]
             edge_d = path[p + 1]
             time_interval = Graph[edge_o][edge_d]
-            for tt in range(time_stamp, min(time_stamp + time_interval, 60)):
+            for tt in range(time_stamp, min(time_stamp + time_interval, 100)):
                 cap = traffic_flow[(edge_o, edge_d)][tt][1] - traffic_flow[(edge_o, edge_d)][tt][0]
                 if cap < 0:
                     print(f"这他妈是负数？ (edge_o, edge_d): {(edge_o, edge_d)}, tt: {tt}, cap: {cap}")
@@ -1080,7 +1080,7 @@ def update_center_for_heuristic(center, dispatch_result, current_time, charge_v,
                     edge_d = center.edges[edge_id].destination
                     time_interval = round(center.edges[edge_id].calculate_time())
                     # print(f"edge_id: {edge_id}, edge_o: {edge_o}, edge_d: {edge_d}, time_interval: {time_interval}")
-                    while time_interval >= 1 and flow_ind <= 60:
+                    while time_interval >= 1 and flow_ind <= 100:
                         center.edge_timely_estimated_load[(edge_o, edge_d)][flow_ind][0] += 1
                         time_interval -= 1
                         flow_ind += 1
@@ -1117,7 +1117,7 @@ def update_center_for_heuristic(center, dispatch_result, current_time, charge_v,
                     edge_d = center.edges[edge_id].destination
                     time_interval = round(center.edges[edge_id].calculate_time())
                     # print(f"edge_id: {edge_id}, edge_o: {edge_o}, edge_d: {edge_d}, time_interval: {time_interval}")
-                    while time_interval >= 1 and flow_ind <= 60:
+                    while time_interval >= 1 and flow_ind <= 100:
                         center.edge_timely_estimated_load[(edge_o, edge_d)][flow_ind][0] += 1
                         time_interval -= 1
                         flow_ind += 1

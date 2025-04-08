@@ -75,36 +75,20 @@ class DispatchCenter:
         tu_list[i] += n
         return tuple(tu_list)
 
-
     def calculate_lost(self):
         """
-        计算交通部分的总loss
-        :return: 当前总loss
-        更新一下，流量部分只算待充电车与充电车，不算别的车
+        计算仍未到达终点的需充电车辆数
+        :return: 未到达终点的充电车辆数量
         """
-        sum_road = 0
-        for edge in self.edges.values():
-            sum_road += edge.capacity["charge"][1]
-            # print(f"道路{edge.id}，流量{edge.capacity['charge'][1]}，时间{edge.calculate_drive()}")
-        for cs in self.charge_stations.values():
-            for power, queue in cs.queue.items():
-                if len(queue) > 0:
-                    sum_road += len(queue)
+        not_arrived_count = 0
 
-            for power, queue in cs.charge.items():
-                if len(queue) > 0:
-                    sum_road += len(queue)
-        # for charge_station in self.charge_stations.values():
-        #     if list(charge_station.charge.values()) != [[]]:
-        #         for ipair in charge_station.charge.values():
-        #             for i in ipair:
-        #                 sum_road += i[1]
-        #     for p, n in charge_station.pile.items():
-        #         length = len(charge_station.queue[p])
-        #         if length > 0:
-        #             for i, time in charge_station.queue[p]:
-        #                 sum_road += length * time
-        return sum_road
+        # 只统计charge_id列表中的车辆，且它们还没有到达终点
+        for vehicle_id in self.charge_id:
+            vehicle = self.vehicles[vehicle_id]
+            if vehicle.road != -1:  # 如果车辆仍在道路上（未到达终点）
+                not_arrived_count += 1
+
+        return not_arrived_count
 
     def dispatch_promax(self, t, center, real_path_results, charge_v, charge_od, num_population, num_cs, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio = None):
 
@@ -140,23 +124,23 @@ class DispatchCenter:
         #     vehicle.drive()
 
         #CCRP、CCRPP
-        # print(5198186941684986189)
-        # print(center.edge_timely_estimated_load)
-        # start = time.time()
-        # # dispatch_result, traffic_flow, anxiety_result = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
-        # dispatch_result, traffic_flow, anxiety_result = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
-        # end = time.time()
-        # self.dispatch_time_cnt.append(end - start)
-        # print(f"Dispatching finished in {end - start} seconds")
-        # EAalgorithm.update_center_for_heuristic(center, dispatch_result, t, charge_v, anxiety_result)
+        print(5198186941684986189)
+        print(center.edge_timely_estimated_load)
+        start = time.time()
+        # dispatch_result, traffic_flow, anxiety_result = EAalgorithm.dispatch_CCRP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
+        dispatch_result, traffic_flow, anxiety_result = EAalgorithm.dispatch_CCRPP(t, center, OD_ratio, cs, charge_v, anxiety_OD_ratio)
+        end = time.time()
+        self.dispatch_time_cnt.append(end - start)
+        print(f"Dispatching finished in {end - start} seconds")
+        EAalgorithm.update_center_for_heuristic(center, dispatch_result, t, charge_v, anxiety_result)
 
 
         #MOPSO
-        print(231342767)
-        REP, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MOPSO(center, real_path_results, charge_v,
-                        charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio)
-        MOalgorithm.dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, real_path_results,
-                                   anxiety_OD_ratio, anxiety_cs_for_choice)
+        # print(231342767)
+        # REP, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MOPSO(center, real_path_results, charge_v,
+        #                 charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio)
+        # MOalgorithm.dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, real_path_results,
+        #                            anxiety_OD_ratio, anxiety_cs_for_choice)
 
 
 

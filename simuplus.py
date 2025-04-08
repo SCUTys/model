@@ -323,7 +323,7 @@ if __name__ == "__main__":
     for edge in center.edges.values():
         print(edge.capacity)
         center.edge_timely_estimated_load[(edge.origin, edge.destination)] = []
-        for i in range(1, 20 * 3 + 11):
+        for i in range(1, 20 * 3 + 40):
             center.edge_timely_estimated_load[(edge.origin, edge.destination)].append([0, int(edge.capacity['all'][0] * (1 + 0))])
 
     for i in range(1, 20 * 3):
@@ -425,7 +425,7 @@ if __name__ == "__main__":
             pdn_result.append(pdn_loss)
             # print(pdn_loss)
             tn_result.append(center.calculate_lost())
-                # print(center.calculate_lost())
+            # print(center.calculate_lost())
 
             for (O, D) in OD:
                 #对于od2来说，设置车的电量，必须途中充电就4.2， 只是焦虑区间就6，直达就随便了（直达占比就是rate， 其他两个1:1分配或随机数得了）
