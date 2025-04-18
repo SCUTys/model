@@ -251,3 +251,45 @@ plt.show()
 # print("Hello World!")
 # print(len(traffic_flow[(1, 2)]))
 
+import pandapower as pp
+from pandapower import networks as pn
+
+net = pn.case33bw()
+print(net.load)
+
+# # 加载网络并运行ACOPF
+# net = pp.networks.case14()
+# pp.runopp(net)
+# base_cost = net.res_cost
+# base_lmp = net.res_bus['lam_p'].to_dict()
+# print(f"基准成本: {base_lmp} ")
+#
+# delta_load = 1.0  # 1 MW
+# node_i = 5  # 示例节点
+# node_ii = 8  # 示例节点
+# lmp_i = base_lmp[node_i] * 1
+# # 修改节点i的负荷
+# net.load.loc[net.load.bus == node_i, "p_mw"] += delta_load
+# print(f"；理论增量成本: {lmp_i:.2f} 元")
+#
+# # 重新运行ACOPF
+# pp.runopp(net)
+# new_cost = net.res_cost
+# new_lmp = net.res_bus['lam_p'].to_dict()
+# print(f"新成本: {new_lmp} ")
+# print(f"改一个节点后增加了 {new_cost - base_cost} 元")
+# lmp_ii = new_lmp[node_ii] * 1  # 转换为元/kWh
+# print(f"；理论增量成本: {lmp_ii:.2f} 元")
+#
+# net.load.loc[net.load.bus == node_ii, "p_mw"] += delta_load
+# pp.runopp(net)
+# newnew_cost = net.res_cost
+# newnew_lmp = net.res_bus['lam_p'].to_dict()
+# delta_cost = newnew_cost - new_cost
+# print(f"多改了一个节点增加了: {delta_cost} ")
+# total_cost = newnew_cost - base_cost
+# print(f"改完后: {total_cost} 元")
+# # print(f"理论LMP（节点{node_i}）: {lmp_i:.2f} 元/kWh")
+# # print(f"理论LMP（节点{node_ii}）: {lmp_ii:.2f} 元/kWh")
+# # print(f"；理论增量成本: {lmp_ii:.2f} 元")
+# # print(f"实际成本增量: {delta_cost:.2f} 元")

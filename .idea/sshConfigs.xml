@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" connectionConfig="{&quot;hostKeyVerifier&quot;:{&quot;stringHostKeyChecking&quot;:&quot;NO&quot;}}" host="222.201.144.188" id="3342c945-4123-46b5-bb3c-da136d43b88d" port="22" nameFormat="DESCRIPTIVE" username="custom" useOpenSSHConfig="true" />
+      <sshConfig authType="PASSWORD" connectionConfig="{&quot;hostKeyVerifier&quot;:{&quot;stringHostKeyChecking&quot;:&quot;NO&quot;},&quot;proxyParams&quot;:{&quot;proxyHost&quot;:&quot;&quot;,&quot;proxyPort&quot;:-1,&quot;proxyType&quot;:&quot;IDE_WIDE_PROXY&quot;}}" host="110.1.2.1" id="7de77dd8-5116-46a3-9701-b608c1fcf58c" port="22" nameFormat="DESCRIPTIVE" username="yangsheng" useOpenSSHConfig="true" />
+    </configs>
+  </component>
+</project>

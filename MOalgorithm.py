@@ -311,6 +311,8 @@ def update_velocity(population, velocity, p_memory, p_REP, w):
     return velocity
 
 
+
+
 def update_position(population, velocity):
     for i in range(len(population)):
         for j in range(len(population[i])):
@@ -422,13 +424,14 @@ def update_REP(REP, population, OD_ratio, anxiety_OD_ratio, cs_for_choice, anxie
     return REP
 
 
-def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio=None):
+def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio=None, P_first = 1):
     od_length, od_wait = process_od_length(real_path_results)
     population, velocity = initialize_population(num_population, num_cs, len(OD_ratio.keys()) + len(anxiety_OD_ratio.keys()))
     cs_for_choice = process_cs(OD_ratio, cs, num_cs, od_length)
     anxiety_cs_for_choice = process_cs(anxiety_OD_ratio, cs, num_cs, od_length, 0)
     REP = []
     REP_max = num_population
+    P_s = 1
     front, fit1, fit2 = fast_non_dominated_sorting(population, OD_ratio, anxiety_OD_ratio, cs_for_choice, anxiety_cs_for_choice, od_length, od_wait, cs_bus, lmp_dict, cs)
     print('Initialized fast non dominated sorting finished')
     for i in front[0]:
@@ -443,15 +446,17 @@ def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_popula
         print("第{}代".format(loop_cnt))
         p_REP = cube_selection(REP, 3, num_population)
         print("p_REP")
-        # population = mutation(population, 0.5, loop_cnt, max_iter)
-        # print("mutation finished")
-        velocity = update_velocity(population, velocity, p_memory, p_REP, 0.4)
+        population = mutation(population, 0.5, loop_cnt, max_iter)
+        print("mutation finished")
+        velocity = update_velocity(population, velocity, p_memory, p_REP, 0.4 + 0.5 * P_s)
         print("velocity updated")
         population = update_position(population, velocity)
         print("population updated")
         REP = update_REP(REP, population, OD_ratio, anxiety_OD_ratio, cs_for_choice, anxiety_cs_for_choice, od_length,
                          od_wait, cs_bus, lmp_dict, cs, REP_max)
         print("REP updated")
+
+        u_l_cnt = 0
 
         # 更新个体最优
         for i in range(num_population):
@@ -464,8 +469,11 @@ def dispatch_cs_MOPSO(center, real_path_results, charge_v, charge_od, num_popula
                     (fit1_val <= p_memory[i][0] and fit2_val < p_memory[i][1]) or
                     (fit1_val < p_memory[i][0] and fit2_val <= p_memory[i][1])):
                 p_memory[i] = (fit1_val, fit2_val, population[i])
+                u_l_cnt += 1
+        P_s = u_l_cnt / num_population
+        print("个体最优更新率：", P_s)
 
-    REP = sorted(REP, key=lambda x: x[0])
+    REP = sorted(REP, key=lambda x: x[P_first])
     return REP, cs_for_choice, anxiety_cs_for_choice
 
 
