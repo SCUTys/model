@@ -9,8 +9,6 @@ import random
 import csv
 import ast
 import matplotlib.pyplot as plt
-import sys
-import json
 import concurrent.futures
 import numba
 import heapq
@@ -210,7 +208,9 @@ if __name__ == "__main__":
     G = processor.build_graph(csv_net_path)
     print("建图完成")
     path_results = processor.process_paths()
-    # print(path_results)
+    print(path_results)
+    for (i, j), paths in path_results.items():
+        print((i,j))
 
 
     # generator = ODGenerator(csv_od_path)
@@ -227,6 +227,7 @@ if __name__ == "__main__":
 
     generator = ODgenerator_equal(csv_od_path, count=20)
     data = generator.load()
+    print(data)
     OD_results = generator.distribute_equal_od_pairs(data)
     print("OD载入完成")
     print(len(OD_results), len(OD_results[0]), len(OD_results[1]), len(OD_results[2]))
@@ -247,8 +248,16 @@ if __name__ == "__main__":
                 writer.writerow(sublist)
 
     # print(OD_results)
+    # for ods in OD_results:
+    #     d = {}
+    #     for (O, D) in ods:
+    #         if (O, D) in d:
+    #             d[(O, D)] += 1
+    #         else:
+    #             d[(O, D)] = 1
+    #     print(d)
     # print(len(OD_results), len(OD_results[0]), len(OD_results[1]), len(OD_results[2]))
-    # print("mother fucker")
+    print("mother fucker")
 
     edge_data = pd.read_csv(csv_net_path, usecols=['init_node', 'term_node', 'capacity', 'length', 'free_flow_time'])
     # edge_data = edge_data.dropna()
@@ -329,6 +338,7 @@ if __name__ == "__main__":
     for i in range(1, 20 * 3):
         # if all_log:
         print(f"主循环 {i}")
+        center.current_time = i
         if i == 1:
             for edge in center.edges.values():
                 edge.update_ratio()
@@ -445,7 +455,7 @@ if __name__ == "__main__":
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
                                                  true_path[0], next,
                                                  true_path, 60, random.randint(12, 48), 0.05, 0.15, 0, {}, 1)  #电能单位为千瓦时
-
+                    new_vehicle.start_time = center.current_time
                     center.vehicles.append(new_vehicle)
 
                     if charge_num == 0:
@@ -469,11 +479,13 @@ if __name__ == "__main__":
                         new_vehicle.drive()
 
                     else:
-                        charge_num -= 1
                         charge_v.append(v_index)
                         rr = random.randint(0, 1)
-                        new_vehicle.E = 4.2 if rr == 0 else 6
-                        new_vehicle.anxiety = 1 if rr == 0 else 0
+                        # new_vehicle.E = 4.2 if rr == 0 else 6
+                        # new_vehicle.anxiety = 1 if rr == 0 else 0
+                        new_vehicle.E = 4.2 if charge_num % 2 == 0 else 6
+                        new_vehicle.anxiety = 1 if charge_num % 2 == 0 else 0
+                        charge_num -= 1
                         charge_od.append((O, D))
                         center.charge_id.append(v_index)
 
@@ -492,6 +504,7 @@ if __name__ == "__main__":
                     new_vehicle = TNplus.Vehicle(v_index, center, O, D, center.edges[true_path[0]].length,
                                                  true_path[0], next,
                                                  true_path, 60, random.randint(48, 54), 0.05, 0.15, 0, {}, 1)  #电能单位为千瓦时
+                    new_vehicle.start_time = center.current_time
                     if charge_num == 0:
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity["all"], 1)
@@ -516,11 +529,13 @@ if __name__ == "__main__":
                         new_vehicle.drive()
 
                     else:
-                        charge_num -= 1
                         charge_v.append(v_index)
                         rr = random.randint(0, 1)
-                        new_vehicle.E = 4.2 if rr == 0 else 6
-                        new_vehicle.anxiety = 1 if rr == 0 else 0
+                        # new_vehicle.E = 4.2 if rr == 0 else 6
+                        # new_vehicle.anxiety = 1 if rr == 0 else 0
+                        new_vehicle.E = 4.2 if charge_num % 2 == 0 else 6
+                        new_vehicle.anxiety = 1 if charge_num % 2 == 0 else 0
+                        charge_num -= 1
                         charge_od.append((O, D))
                         center.charge_id.append(v_index)
 
@@ -581,7 +596,6 @@ if __name__ == "__main__":
             # print(f"charge_v{charge_v}")
             print(f"传进dispatch的i：{i}")
             print(f"充电车数量为{len(charge_v)}")
-            print(66666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666)
             # if i / T <= 2:
             # center.dispatch(charge_v, path_results, i)
             # # else:
@@ -589,7 +603,6 @@ if __name__ == "__main__":
             # for od, result in real_path_results.items():
             #     if len(result) == 1:
             #         result.append(result[0])
-            print("最后一道检测，数据预处理是这样的，硬控我")
             print(len(charge_v))
             cnt_charge_od = {}
             cnt_anxiety_charge_od = {}
@@ -613,8 +626,8 @@ if __name__ == "__main__":
             #         cnt_charge_od[(o, d)] = 1
             print(cnt_charge_od)
             print(cnt_anxiety_charge_od)
-            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 50, 4, lmp_dict, 1000, cnt_charge_od, cnt_anxiety_charge_od)
-
+            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 50, 4, lmp_dict, 500, cnt_charge_od, cnt_anxiety_charge_od)
+            #毕设用的种群大小50，进化代数250
 
         for cs in center.charge_stations.values():
             cs.process()
@@ -656,33 +669,66 @@ if __name__ == "__main__":
     print(f"总共流统计{sum1 + sum2}")
     print(center.dispatch_time_cnt)
 
+    sum_a = 0
+    sum_d = 0
+    sum_w = 0
+    sum_v = 0
+    sum_c = 0
+    sum_us = 0
+    sum_uv = 0
+    min_start = 0
+    sum_aa = 0
+    sum_ad = 0
+    sum_aw = 0
+    sum_av = 0
+    sum_ac = 0
+    for final_vehicle in center.vehicles:
+        if final_vehicle.anxiety != -1:
+            if final_vehicle.arrive_time <= final_vehicle.start_time:
+                final_vehicle.arrive_time = 60
+                sum_us += 60 - final_vehicle.arrive_time
+            sum_a += final_vehicle.arrive_time - final_vehicle.start_time
+            sum_d += final_vehicle.arrive_time - final_vehicle.start_time - final_vehicle.total_wait - final_vehicle.total_charge
+            sum_w += final_vehicle.total_wait
+            sum_c += final_vehicle.total_charge
+            sum_v += 1
+            if final_vehicle.road == -1:
+                min_start = max(min_start, final_vehicle.start_time)
+                sum_aa += final_vehicle.arrive_time - final_vehicle.start_time
+                sum_ad += final_vehicle.arrive_time - final_vehicle.start_time - final_vehicle.total_wait - final_vehicle.total_charge
+                sum_aw += final_vehicle.total_wait
+                sum_ac += final_vehicle.total_charge
+                sum_av += 1
+    print(f"交通侧总时间{sum_a}, 总行驶时间{sum_d}, 总等待时间{sum_w}，总充电时间{sum_c}，总统计车数{sum_v}")
+    print(f"到达车辆：交通侧总时间{sum_aa}, 总行驶时间{sum_ad}, 总等待时间{sum_aw}，总充电时间{sum_ac}，总统计车数{sum_av},最晚开始行驶时间{min_start},未到达车辆总时间{sum_us}")
 
 
-    # 假设x轴为序号
-    x = list(i * 3 for i in range(1, len(pdn_result) + 1))
 
-    # 创建一个新的图形
-    plt.figure()
-
-    # 绘制 pdn_result 数据
-    plt.plot(x, pdn_result, label='pdn_result', marker='o')
-
-
-    # 添加图例
-    plt.legend()
-
-    # 显示图形
-    plt.show()
-
-    # 创建一个新的图形
-    plt.figure()
-
-    # 绘制 tn_result 数据
-    plt.plot(x, tn_result, label='tn_result', marker='s')
-
-    # 添加图例
-    plt.legend()
-
-    # 显示图形
-    plt.show()
+    # # 假设x轴为序号
+    # x = list(i * 3 for i in range(1, len(pdn_result) + 1))
+    #
+    # # 创建一个新的图形
+    # plt.figure()
+    #
+    # # 绘制 pdn_result 数据
+    # plt.plot(x, pdn_result, label='pdn_result', marker='o')
+    #
+    #
+    # # 添加图例
+    # plt.legend()
+    #
+    # # 显示图形
+    # plt.show()
+    #
+    # # 创建一个新的图形
+    # plt.figure()
+    #
+    # # 绘制 tn_result 数据
+    # plt.plot(x, tn_result, label='tn_result', marker='s')
+    #
+    # # 添加图例
+    # plt.legend()
+    #
+    # # 显示图形
+    # plt.show()
 

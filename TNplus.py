@@ -7,6 +7,7 @@ import ast
 import sympy as sp
 import EAalgorithm
 import MOalgorithm
+import dispatchpath
 import time
 from scipy.special import gammaln
 
@@ -46,6 +47,7 @@ class DispatchCenter:
         self.log = log
         self.delay_vehicles = [[] for _ in range(100)]
         self.dispatch_time_cnt = []
+        self.current_time = 0
 
     def calculate_path(self, path):
         return [edge.id for i in range(len(path) - 1) for edge in self.edges.values() if
@@ -92,37 +94,6 @@ class DispatchCenter:
 
     def dispatch_promax(self, t, center, real_path_results, charge_v, charge_od, num_population, num_cs, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio = None):
 
-        # #NSGA2个体调度
-        # cs_result, cs_for_choice, real_cs_ids = EAalgorithm.dispatch_cs_nsga2(center, real_path_results, charge_v, charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter)
-        # # dispatched_path, _ , actual_path = EAalgorithm.dispatch_path_ga(cs_result, cs_for_choice, center, real_path_results, charge_v, charge_od, num_population, num_cs, max_iter)
-        # _, actual_path = EAalgorithm.generate_shortest_actual_paths(cs_result, charge_od, real_path_results, cs_for_choice, charge_v)
-        #
-        # print("Dispatching finished")
-        # # print(real_cs_ids)
-        # # print(actual_path)
-        #
-        # for i, vehicle_id in enumerate(charge_v):
-        #     vehicle = self.vehicles[vehicle_id]
-        #     path = actual_path[i]
-        #     print(path, vehicle.origin, vehicle.destination)
-        #     vehicle.path = self.calculate_path(path)
-        #     print(vehicle.path)
-        #     vehicle.road = vehicle.path[0]
-        #     vehicle.next_road = vehicle.path[1] if len(vehicle.path) > 1 else -1
-        #     vehicle.charge = (real_cs_ids[i], list(self.charge_stations[real_cs_ids[i]].pile.keys())[0])  # Assuming the first pile for simplicity
-        #
-        #     # Update the flow on the roads
-        #     time = sum(self.edges[road_id].calculate_drive() for road_id in vehicle.path)
-        #     self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = time
-        #     self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
-        #     if vehicle.id in vehicle.center.charge_id:
-        #         self.edges[vehicle.road].capacity["charge"] = self.solve_tuple(
-        #             self.edges[vehicle.road].capacity["charge"], 1)
-        #     self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(
-        #         self.edges[vehicle.road].capacity[vehicle.next_road], 1)
-        #
-        #     vehicle.drive()
-
         #CCRP、CCRPP
         # print(5198186941684986189)
         # print(center.edge_timely_estimated_load)
@@ -136,11 +107,44 @@ class DispatchCenter:
 
 
         # MOPSO
-        print(231342767)
-        REP, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MOPSO(center, real_path_results, charge_v,
-                        charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio)
-        MOalgorithm.dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, real_path_results,
-                                   anxiety_OD_ratio, anxiety_cs_for_choice)
+        # sol, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MOPSO(center, real_path_results, charge_v,
+        #                 charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio)
+
+
+        # sol, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MODE(center, real_path_results, charge_v,
+        #                                                                          charge_od, num_population, num_cs, cs,
+        #                                                                          cs_bus, lmp_dict, max_iter, OD_ratio,
+        #                                                                          anxiety_OD_ratio)
+        # sol, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_R_NSGA2(center, real_path_results, charge_v,
+        #                 charge_od, num_population, num_cs, cs, cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio)
+
+        # sol, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MOEAD(center, real_path_results, charge_v,
+        #                                                                           charge_od, num_population, num_cs, cs,
+        #                                                                           cs_bus, lmp_dict, max_iter, OD_ratio,
+        #                                                                           anxiety_OD_ratio)
+        sol, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MODED(center, real_path_results, charge_v,
+                                                                                  charge_od, num_population, num_cs, cs,
+                                                                                  cs_bus, lmp_dict, max_iter, OD_ratio,
+                                                                                  anxiety_OD_ratio)
+
+        # MOalgorithm.dispatch_vehicles_by_mopso(center, sol, charge_v, OD_ratio, cs_for_choice, real_path_results,
+        #                                        anxiety_OD_ratio, anxiety_cs_for_choice)
+
+        # dispatchpath.dispatch_vehicles_with_frank_wolfe_update(center, sol[0][2], charge_v, OD_ratio, cs_for_choice,
+        #                                                real_path_results,
+        #                                                anxiety_OD_ratio, anxiety_cs_for_choice)
+
+        # dispatchpath.dispatch_vehicles_with_projected_gradient(center, sol[0][2], charge_v, OD_ratio, cs_for_choice,real_path_results,
+        #                                                anxiety_OD_ratio, anxiety_cs_for_choice)
+
+        # dispatchpath.dispatch_vehicles_with_simplicial_decomposition(center, sol[0][2], charge_v, OD_ratio, cs_for_choice,
+        #                                                        real_path_results,
+        #                                                        anxiety_OD_ratio, anxiety_cs_for_choice)
+
+        dispatchpath.dispatch_vehicles_with_disaggregated_simplicial_decomposition(center, sol[0][2], charge_v, OD_ratio,
+                                                                     cs_for_choice,
+                                                                     real_path_results,
+                                                                     anxiety_OD_ratio, anxiety_cs_for_choice)
 
 
 
@@ -498,8 +502,12 @@ class Vehicle:
         self.log = log
         self.delay = False
         self.anxiety = -1 #-1是直接到达终点，0是到达终点但在焦虑范围内（到终点后规划路径去充电），1是到达终点前就要充电
+        self.total_charge = 0
+        self.total_wait = 0
+        self.start_time = 0
+        self.arrive_time = 0
 
-    def drive(self, rate=1):
+    def drive(self, rate: object = 1) -> None:
         """
         车辆行为：驾驶
         若未到达路口，用bpr计算速度，车辆行进
@@ -536,6 +544,7 @@ class Vehicle:
                 self.distance = 0
 
                 if self.check_destination():
+                    self.arrive_time = max(self.center.current_time + (1 - rate) * r, self.arrive_time)
                     if len(self.charge) > 0:
                         if self.destination == self.charge[0]:
                             self.enter_charge()
@@ -575,7 +584,8 @@ class Vehicle:
         if self.log:
             print(f"车辆 {self.id} 正在等待 ")
         if self.is_wait == 0 and self.distance == 0:
-            self.is_wait = self.wait_time
+            self.is_wait = self.center.nodes[self.center.edges[self.road].destination].calculate_wait(self.road, self.next_road)
+            self.total_wait += self.is_wait
             if self.is_wait > t * (1 - rate):
                 self.is_wait -= t * (1 - rate)
                 self.E -= t * self.Ewait * (1 - rate)
@@ -595,7 +605,7 @@ class Vehicle:
                         junction.wait.remove(tu)
                 self.change_road(1 - r)
             else:
-                self.is_wait -= t
+                self.is_wait -= rate
                 self.E -= t * self.Ewait
 
 
@@ -725,7 +735,7 @@ class Vehicle:
         检查是否为终点
         :return:
         """
-        if self.distance == 0 and self.center.edges[self.road].destination == self.destination and self.next_road == -1:
+        if self.distance == 0 and self.next_road == -1:
             return True
         else:
             return False
@@ -880,6 +890,7 @@ class ChargeStation:
                 e = self.center.vehicles[v_id].E
                 e_max = self.center.vehicles[v_id].Emax
                 v_t = (e_max - e) / p * 60 / 2
+                self.center.vehicles[v_id].total_charge = v_t
                 self.charge[p].append((v_id, v_t))
                 self.t_cost[p] = self.center.solve_tuple(self.t_cost[p], v_t, 0)
                 self.t_cost[p] = self.center.solve_tuple(self.t_cost[p], 1, 1)
@@ -905,6 +916,7 @@ class ChargeStation:
                 e = self.center.vehicles[v_id].E
                 e_max = self.center.vehicles[v_id].Emax
                 v_t = (e_max * 0.9 - e) / p * 60
+                self.center.vehicles[v_id].total_charge = v_t
                 if len(extra_time) > 0:
                     v_t -= extra_time[0]  #有个隐患，万一前车留下的空余时间足够后来相应车直接充满可能会有负数，但谁充电总共只充不到1分钟啊
                     self.cost += p / 60 * extra_time[0]

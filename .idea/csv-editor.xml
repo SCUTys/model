@@ -3,6 +3,13 @@
   <component name="CsvFileAttributes">
     <option name="attributeMap">
       <map>
+        <entry key="C:\Users\30288\OneDrive\Desktop\ctmd\ZQRNSGA2.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\OD_output.csv">
           <value>
             <Attribute>
@@ -11,6 +18,13 @@
           </value>
         </entry>
         <entry key="\data\AT\AT_net_processed.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\data\EMA\EMA_net.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
@@ -95,6 +109,13 @@
           </value>
         </entry>
         <entry key="\data\SF\SF_od.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\data\SF\SF_od2.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
