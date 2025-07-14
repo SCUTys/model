@@ -626,7 +626,7 @@ if __name__ == "__main__":
             #         cnt_charge_od[(o, d)] = 1
             print(cnt_charge_od)
             print(cnt_anxiety_charge_od)
-            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 50, 4, lmp_dict, 500, cnt_charge_od, cnt_anxiety_charge_od)
+            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 20, 4, 4, lmp_dict, 1, cnt_charge_od, cnt_anxiety_charge_od)
             #毕设用的种群大小50，进化代数250
 
         for cs in center.charge_stations.values():

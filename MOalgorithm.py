@@ -666,7 +666,7 @@ def dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, r
                 vehicle.speed = center.edges[vehicle.road].calculate_drive()
 
                 # 设置充电站
-                vehicle.charge = (cs_id, 300)  # 300秒充电时间
+                vehicle.charge = (cs_id, 300)
 
                 # 更新容量计数
                 center.edges[vehicle.road].capacity["all"] = center.solve_tuple(

@@ -10,6 +10,8 @@ import MOalgorithm
 import dispatchpath
 import time
 from scipy.special import gammaln
+import CCforall
+
 
 t = 1 #min
 T = 10 #min
@@ -92,7 +94,7 @@ class DispatchCenter:
 
         return not_arrived_count
 
-    def dispatch_promax(self, t, center, real_path_results, charge_v, charge_od, num_population, num_cs, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio = None):
+    def dispatch_promax(self, t, center, real_path_results, charge_v, charge_od, num_population, num_cs, num_path, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio = None):
 
         #CCRP、CCRPP
         # print(5198186941684986189)
@@ -122,10 +124,10 @@ class DispatchCenter:
         #                                                                           charge_od, num_population, num_cs, cs,
         #                                                                           cs_bus, lmp_dict, max_iter, OD_ratio,
         #                                                                           anxiety_OD_ratio)
-        sol, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MODED(center, real_path_results, charge_v,
-                                                                                  charge_od, num_population, num_cs, cs,
-                                                                                  cs_bus, lmp_dict, max_iter, OD_ratio,
-                                                                                  anxiety_OD_ratio)
+        # sol, cs_for_choice, anxiety_cs_for_choice = MOalgorithm.dispatch_cs_MODED(center, real_path_results, charge_v,
+        #                                                                           charge_od, num_population, num_cs, cs,
+        #                                                                           cs_bus, lmp_dict, max_iter, OD_ratio,
+        #                                                                           anxiety_OD_ratio)
 
         # MOalgorithm.dispatch_vehicles_by_mopso(center, sol, charge_v, OD_ratio, cs_for_choice, real_path_results,
         #                                        anxiety_OD_ratio, anxiety_cs_for_choice)
@@ -141,10 +143,15 @@ class DispatchCenter:
         #                                                        real_path_results,
         #                                                        anxiety_OD_ratio, anxiety_cs_for_choice)
 
-        dispatchpath.dispatch_vehicles_with_disaggregated_simplicial_decomposition(center, sol[0][2], charge_v, OD_ratio,
-                                                                     cs_for_choice,
-                                                                     real_path_results,
-                                                                     anxiety_OD_ratio, anxiety_cs_for_choice)
+        # dispatchpath.dispatch_vehicles_with_disaggregated_simplicial_decomposition(center, sol[0][2], charge_v, OD_ratio,
+        #                                                              cs_for_choice,
+        #                                                              real_path_results,
+        #                                                              anxiety_OD_ratio, anxiety_cs_for_choice)
+
+        cc_sol =CCforall.dispatch_all_ccMODE(center, real_path_results, charge_v, num_population, num_cs, cs, num_path,
+                                             cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio)
+
+
 
 
 
