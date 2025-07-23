@@ -189,3 +189,60 @@ print(max(ww))
 
 
 
+def generate_random_1(l):
+    numbers = [random.random() for _ in range(l)]
+    total = sum(numbers)
+    if total > 0:
+        normalized_numbers = [n / total for n in numbers]
+    else:
+        # 处理极端情况，所有随机数都为0
+        normalized_numbers = [1.0 / l for _ in range(l)]
+    return normalized_numbers
+
+def normalize_vector(vector):
+    """确保向量元素和为1的精确归一化函数"""
+    total = sum(vector)
+    if total == 0:
+        # 处理全零向量
+        return [1.0/len(vector) for _ in range(len(vector))]
+    else:
+        # 先归一化
+        normalized = [v / total for v in vector]
+        # 检查是否精确和为1
+        actual_sum = sum(normalized)
+        if actual_sum != 1.0:
+            # 对第一个非零元素进行微调
+            for i in range(len(normalized)):
+                if normalized[i] > 0:
+                    normalized[i] += (1.0 - actual_sum)
+                    break
+        return normalized
+
+
+
+
+
+def generate_random_individual(num_cs, num_path):
+
+    # random.seed(random.randint(1, 114514)
+    individual = []
+    weight = generate_random_1(num_cs)
+    for i in range(num_cs):
+        sub_vector = generate_random_1(num_path)
+        subs = [x * weight[i] for x in sub_vector]
+        ss = sum(subs)
+        for sub in subs:
+            individual.append(sub / ss)
+
+    # 重置随机种子，避免影响其他随机操作
+    # if seed is not None:
+    #     random.seed()
+
+    return normalize_vector(individual)
+
+
+for _ in range(100):
+    wwwww = generate_random_individual(2, 2)
+    print(wwwww, sum(wwwww))
+
+

@@ -94,6 +94,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\data\SF\CSV-data\SiouxFalls_od.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\data\SF\SF_net - 副本.csv">
           <value>
             <Attribute>

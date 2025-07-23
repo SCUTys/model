@@ -148,7 +148,7 @@ class DispatchCenter:
         #                                                              real_path_results,
         #                                                              anxiety_OD_ratio, anxiety_cs_for_choice)
 
-        cc_sol =CCforall.dispatch_all_ccMODE(center, real_path_results, charge_v, num_population, num_cs, cs, num_path,
+        cc_sol =CCforall.dispatch_all_ccMODE_parallel(center, real_path_results, charge_v, num_population, num_cs, cs, num_path,
                                              cs_bus, lmp_dict, max_iter, OD_ratio, anxiety_OD_ratio)
 
 
@@ -787,6 +787,11 @@ class Edge:
         numeric_solutions = [sp.N(sol) for sol in real_non_negative_solutions]
         # print(f"道路{self.id}的k值为{numeric_solutions[0]}")
         self.k = numeric_solutions[0]
+        # if load != 0:
+        #     print(f"ctmlgb, {self.id}")
+        #     print(equation)
+        #     print(self.k, solutions)
+        #     print(self.calculate_time())
 
 
     def calculate_drive(self):

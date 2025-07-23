@@ -13,7 +13,7 @@
       <paths name="lab">
         <serverdata>
           <mappings>
-            <mapping deploy="/mymodel3" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/mymodel2" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

@@ -11,6 +11,94 @@ from concurrent.futures import ProcessPoolExecutor
 import pandapower as pp
 
 
+def calculate_hypervolume(fronts):
+    """
+    计算二维前沿解集的超体积(HV)指标，并按贡献度排序
+
+    参数:
+        fronts: 列表，每个元素格式为 [指标1, 指标2, 解]
+
+    返回:
+        sorted_fronts: 按照超体积贡献度降序排序的前沿解列表
+    """
+    if not fronts:
+        return []
+
+    # 从front中提取最大值作为参考点
+    max_f1 = max(front[0] for front in fronts) * 1.01
+    max_f2 = max(front[1] for front in fronts) * 1.01
+    reference_point = [max_f1, max_f2]
+
+    # 提取指标值以便计算超体积
+    points = [[front[0], front[1]] for front in fronts]
+
+    # 计算总超体积
+    sorted_points = sorted(points, key=lambda x: x[0])
+    total_hv = 0.0
+    prev_y = reference_point[1]
+
+    for i in range(len(sorted_points)):
+        point = sorted_points[i]
+
+        # 计算当前点贡献的矩形面积
+        if i == len(sorted_points) - 1:
+            width = reference_point[0] - point[0]
+        else:
+            width = sorted_points[i + 1][0] - point[0]
+
+        height = prev_y - point[1]
+        total_hv += width * height
+
+        # 更新prev_y为当前点的y值
+        prev_y = point[1]
+
+    # 计算每个点的贡献度
+    contributions = []
+    for i in range(len(fronts)):
+        # 复制前沿解集但排除当前点
+        temp_fronts = points.copy()
+        temp_fronts.pop(i)
+
+        # 如果排除后前沿为空，贡献度为总超体积
+        if not temp_fronts:
+            contribution = total_hv
+        else:
+            # 计算排除当前点后的超体积
+            sorted_temp = sorted(temp_fronts, key=lambda x: x[0])
+            temp_hv = 0.0
+            prev_y = reference_point[1]
+
+            for j in range(len(sorted_temp)):
+                point = sorted_temp[j]
+
+                if j == len(sorted_temp) - 1:
+                    width = reference_point[0] - point[0]
+                else:
+                    width = sorted_temp[j + 1][0] - point[0]
+
+                height = prev_y - point[1]
+                temp_hv += width * height
+
+                prev_y = point[1]
+
+            # 贡献度为总超体积减去排除当前点后的超体积
+            contribution = total_hv - temp_hv
+
+        contributions.append((i, contribution))
+
+    # 按贡献度降序排序
+    contributions.sort(key=lambda x: x[1], reverse=True)
+
+    # 重新排序前沿解集
+    sorted_fronts = [fronts[idx] for idx, _ in contributions]
+
+    return sorted_fronts
+
+
+
+
+
+
 ##MOPSO
 def process_od_length(real_path_results):
     od_length = {}
@@ -1115,7 +1203,7 @@ def dispatch_cs_MODE(center, real_path_results, charge_v, charge_od, num_populat
             for ii in front[0]:
                 new_population.append([f1(evo_set[ii], OD_ratio, anxiety_OD_ratio, od_length, cs_for_choice, anxiety_cs_for_choice),
                                       f2(evo_set[ii], lmp_dict, OD_ratio, anxiety_OD_ratio, cs, cs_bus, cs_for_choice, anxiety_cs_for_choice, od_length, od_wait), evo_set[ii]])
-            new_population.sort(key=lambda x: x[P_first])
+            new_population = calculate_hypervolume(new_population)
             population = new_population
 
     print(f"best_solution: {population}")
@@ -1742,9 +1830,10 @@ def dispatch_cs_MODED(center, real_path_results, charge_v, charge_od, num_popula
 
     # 最终处理REP
     REP = cleanup_REP(REP)
-    REP.sort(key=lambda x: x[P_first])
-
-    print(f"best_solution: {REP[0]}")
+    REP = calculate_hypervolume(REP)
+    # REP.sort(key=lambda x: x[P_first])
+    #
+    # print(f"best_solution: {REP[0]}")
     return REP, cs_for_choice, anxiety_cs_for_choice
 
 ##################################################################################################################MOEAD

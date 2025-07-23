@@ -187,7 +187,15 @@ def update_node_ratios(Nodes):
     for no in Nodes:
         no.update_ratio()
         
-        
+def update_edge_ratios_with_return(edges):
+    for e in edges:
+        e.update_ratio()
+    return [(e.id, e.k) for e in edges]  # 返回ID和更新后的k值
+
+def update_node_ratios_with_return(nodes):
+    for no in nodes:
+        no.update_ratio()
+    return [(no.id, no.ratio) for no in nodes]  # 返回ID和更新后的ratio值
         
 
 
@@ -335,6 +343,21 @@ if __name__ == "__main__":
         for i in range(1, 20 * 3 + 40):
             center.edge_timely_estimated_load[(edge.origin, edge.destination)].append([0, int(edge.capacity['all'][0] * (1 + 0))])
 
+
+    def process_vehicle_batch(vehicles_batch, center, current_time):
+        """并行处理一批车辆的移动"""
+        results = []
+        for vehicle in vehicles_batch:
+            if not vehicle.delay:
+                if vehicle.charging == False and vehicle.is_wait > 0:
+                    vehicle.wait(vehicle.road, vehicle.next_road)
+                elif vehicle.charging:
+                    pass  # 充电中，无需处理
+                elif vehicle.road != -1:
+                    vehicle.drive(vehicle.road)
+            results.append((vehicle.id, vehicle))
+        return results
+
     for i in range(1, 20 * 3):
         # if all_log:
         print(f"主循环 {i}")
@@ -354,21 +377,25 @@ if __name__ == "__main__":
             node_chunks = [nodes[i::8] for i in range(8)]
 
             with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
-                # Submit tasks for updating edge ratios
-                edge_futures = [executor.submit(update_edge_ratios, chunk) for chunk in edge_chunks]
+                edge_futures = [executor.submit(update_edge_ratios_with_return, chunk) for chunk in edge_chunks]
 
-                # Wait for all futures to complete
-                concurrent.futures.wait(edge_futures)
+                # 从futures获取结果并更新主进程中的边缘
+                for future in concurrent.futures.as_completed(edge_futures):
+                    for edge_id, k_value in future.result():
+                        center.edges[edge_id].k = k_value
 
             with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
                 # Submit tasks for updating node ratios
-                node_futures = [executor.submit(update_node_ratios, chunk) for chunk in node_chunks]
+                node_futures = [executor.submit(update_node_ratios_with_return, chunk) for chunk in node_chunks]
 
-                # Wait for all futures to complete
-                concurrent.futures.wait(node_futures)
+                for future in concurrent.futures.as_completed(node_futures):
+                    for node_id, ratio in future.result():
+                        center.nodes[node_id].ratio = ratio
 
+            # print("我真是要吐了")
             for edge in center.edges.values():
-                print(f"{edge.id} : {edge.capacity}")
+                print(f"{edge.id} : {edge.capacity}, {edge.k}, {edge.calculate_time()}")
+
 
             for cs in center.charge_stations.values():
                 print(f"{cs.id} : {cs.capacity}")
@@ -392,14 +419,31 @@ if __name__ == "__main__":
                 center.vehicles[vehicle_id].drive()
             center.delay_vehicles[i].clear()
 
-        for vehicle in center.vehicles:
-            if not vehicle.delay:
-                if vehicle.charging == False and vehicle.is_wait > 0:
-                    vehicle.wait(vehicle.road, vehicle.next_road)
-                elif vehicle.charging:
-                    continue
-                elif vehicle.road != -1:
-                    vehicle.drive(vehicle.road)
+        # for vehicle in center.vehicles:
+        #     if not vehicle.delay:
+        #         if vehicle.charging == False and vehicle.is_wait > 0:
+        #             vehicle.wait(vehicle.road, vehicle.next_road)
+        #         elif vehicle.charging:
+        #             continue
+        #         elif vehicle.road != -1:
+        #             vehicle.drive(vehicle.road)
+
+        # 在主循环中使用
+        print(f"已有车辆驾驶并行化处理...")
+        vehicles_list = center.vehicles
+        vehicle_batches = [vehicles_list[i:i + 100] for i in range(0, len(vehicles_list), 100)]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(process_vehicle_batch, batch, center, i) for batch in vehicle_batches]
+
+            # 收集结果
+            for future in concurrent.futures.as_completed(futures):
+                batch_results = future.result()
+                # for vid, updated_vehicle in batch_results:
+                #     # 更新中心的车辆状态
+                #     center.vehicles[vid] = updated_vehicle
+
+
 
         """
         这里充电站的信息可改成用csv读入
@@ -624,9 +668,11 @@ if __name__ == "__main__":
             #         cnt_charge_od[(o, d)] += 1
             #     else:
             #         cnt_charge_od[(o, d)] = 1
+            # for id in charge_v:
+            #     print(center.vehicles[id].id, center.vehicles[id].origin, center.vehicles[id].destination, center.vehicles[id].anxiety)
             print(cnt_charge_od)
             print(cnt_anxiety_charge_od)
-            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 20, 4, 4, lmp_dict, 1, cnt_charge_od, cnt_anxiety_charge_od)
+            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 50, 4, 4, lmp_dict, 250, cnt_charge_od, cnt_anxiety_charge_od)
             #毕设用的种群大小50，进化代数250
 
         for cs in center.charge_stations.values():

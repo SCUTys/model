@@ -4,16 +4,16 @@ from pandapower import networks as pn
 from pandapower.networks import case14
 
 net = pn.case14()
-print(net)
-print(net.bus)
-print(net.load)
-print(net.gen)
-print(net.shunt)
-print(net.ext_grid)
-print(net.line)
-print(net.trafo)
-print(net.poly_cost)
-print(net.bus_geodata)
+# print(net)
+# print(net.bus)
+# print(net.load)
+# print(net.gen)
+# print(net.shunt)
+# print(net.ext_grid)
+# print(net.line)
+# print(net.trafo)
+# print(net.poly_cost)
+# print(net.bus_geodata)
 
 def create_ieee14():
     net = pn.case14()
