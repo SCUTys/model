@@ -293,15 +293,12 @@ class DispatchCenter:
 
                     time = sum(self.edges[i].calculate_drive() for i in vehicle.path)
                     self.charge_stations[vehicle.charge[0]].dispatch[vehicle.id] = current_time + time
-                    if self.log:
-                        print(f"车辆{vehicle.id} 在 {current_time}影响交通流")
                     self.edges[vehicle.road].capacity["all"] = self.solve_tuple(self.edges[vehicle.road].capacity["all"], 1)
                     if vehicle.id in vehicle.center.charge_id:
                         self.edges[vehicle.road].capacity["charge"] = self.solve_tuple(self.edges[vehicle.road].capacity["charge"], 1)
                     self.edges[vehicle.road].capacity[vehicle.next_road] = self.solve_tuple(
                         self.edges[vehicle.road].capacity[vehicle.next_road], 1)
-                    if self.log:
-                        print(f'在车辆 {vehicle.id} dispatch中道路{vehicle.road}总流量+1')
+                    print(f'在dispatch方法中，车辆 {vehicle.id} 使道路{vehicle.road}总流量+1，车辆路径为{vehicle.path}')
                     vehicle.drive()
 
             else:
@@ -556,16 +553,14 @@ class Vehicle:
                         if self.destination == self.charge[0]:
                             self.enter_charge()
                     else:
-                        if self.log:
-                            print(f'车辆 {self.id} 已到达终点{self.destination},不再行驶')
+                        print(f'车辆 {self.id} 已到达终点{self.destination},不再行驶')
                         road = self.center.edges[self.road]
                         road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
                         if self.id in self.center.charge_id:
                             road.capacity["charge"] = self.center.solve_tuple(road.capacity["charge"], -1)
                             self.center.charge_id.remove(self.id)
                         road.capacity[-1] = self.center.solve_tuple(road.capacity[-1], -1)
-                        if self.log:
-                            print(f'在车辆 {self.id} destination中道路{self.road}流量-1')
+                        print(f'在车辆 {self.id} destination中道路{self.road}流量-1，车辆路径为{self.path}')
                         self.road = -1
                 elif self.check_charge():
                     self.enter_charge()
@@ -631,8 +626,7 @@ class Vehicle:
                 road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
                 if self.id in self.center.charge_id:
                     road.capacity["charge"] = self.center.solve_tuple(road.capacity["charge"], -1)
-                if self.log:
-                    print(f'在车辆 {self.id} change_road中道路{self.road}流量-1')
+                print(f'在change_road中,车辆 {self.id} 使道路{self.road}流量-1，路径{self.path}')
 
             self.road = self.next_road
             if self.index < len(self.path) - 1:
@@ -652,13 +646,13 @@ class Vehicle:
             if self.distance > rate * self.speed:
                 self.distance -= rate * self.speed
             else:
+                print(f"我是长野原宵宫的猫，车辆 {self.id} 在change_road中距离为0，下一道路为{self.next_road}")
                 self.distance = 0.001
             road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], 1)
             road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], 1)
             if self.id in self.center.charge_id:
                 road.capacity["charge"] = self.center.solve_tuple(road.capacity["charge"], 1)
-            if self.log:
-                print(f'在车辆 {self.id} change_road中道路{self.road}总流量+1')
+            print(f'在change_road中，车辆 {self.id} 使道路{self.road}总流量+1，路径{self.path}')
             if self.next_road not in road.capacity.keys():
                 print("草了")
                 print(self.id)
@@ -692,16 +686,14 @@ class Vehicle:
         """
         self.charging = True
         if self.origin == self.charge[0]:
-            if self.log:
-                print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}")
+            print(f"车辆 {self.id} 于路径起点进入充电站{self.charge[0]}，路径为{self.path}")
         else:
             road = self.center.edges[self.road]
             road.capacity[self.next_road] = self.center.solve_tuple(road.capacity[self.next_road], -1)
             road.capacity["all"] = self.center.solve_tuple(road.capacity["all"], -1)
             if self.id in self.center.charge_id:
                 road.capacity["charge"] = self.center.solve_tuple(road.capacity["charge"], -1)
-            if self.log:
-                print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 充电功率为{self.charge[1]}, 同时道路{self.road}流量-1")
+            print(f"车辆 {self.id} 进入充电站{self.charge[0]}, 同时道路{self.road}流量-1，路径为{self.path}")
         self.center.charge_stations[self.charge[0]].dispatch = {
             i: a for i, a in self.center.charge_stations[self.charge[0]].dispatch.items() if self.id != i
         }
@@ -720,8 +712,9 @@ class Vehicle:
         self.E = self.Emax
         if self.destination != self.charge[0]:
             if self.origin == self.charge[0]:
-                self.charge = {}
                 self.center.edges[self.road].capacity['all'] = self.center.solve_tuple(self.center.edges[self.road].capacity['all'], 1)
+                print(f'车辆 {self.id} 在起点充电站{self.charge[0]}充完电离开，使道路{self.road}总流量+1，路径为{self.path}')
+                self.charge = {}
                 self.center.edges[self.road].capacity[self.next_road] = self.center.solve_tuple(self.center.edges[self.road].capacity[self.next_road], 1)
                 if self.id in self.center.charge_id:
                     self.center.edges[self.road].capacity['charge'] = self.center.solve_tuple(self.center.edges[self.road].capacity['charge'], 1)
@@ -786,6 +779,10 @@ class Edge:
         real_non_negative_solutions = [sol for sol in solutions if sol.is_real and sol >= 0]
         numeric_solutions = [sp.N(sol) for sol in real_non_negative_solutions]
         # print(f"道路{self.id}的k值为{numeric_solutions[0]}")
+        if len(numeric_solutions) == 0:
+            print(f"道路 {self.id} 的方程无解，可能是负载过大, capacity: {cap}, load: {load}, free_time: {self.free_time}, b: {self.b}, power: {self.power}")
+            return
+
         self.k = numeric_solutions[0]
         # if load != 0:
         #     print(f"ctmlgb, {self.id}")

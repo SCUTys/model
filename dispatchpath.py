@@ -625,7 +625,12 @@ def dispatch_vehicles_with_frank_wolfe_update(center, sol, charge_v, OD_ratio, c
             center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
                 center.edges[vehicle.road].capacity[vehicle.next_road], 1)
 
-            vehicle.drive()
+            print(f"在dispatch_vehicles_with_frank_wolfe_update中，车辆 {v_id} 使道路 {vehicle.road} 的容量+1，路径为{vehicle.path}")
+
+            if cs_id != vehicle.origin:
+                vehicle.drive()
+            else:
+                vehicle.enter_charge()
 
     # 输出路径分配统计信息
     print("\n----- 路径分配统计 -----")
@@ -1676,8 +1681,14 @@ def dispatch_vehicles_with_simplicial_decomposition(center, sol, charge_v, OD_ra
                     center.edges[vehicle.road].capacity["charge"], 1)
             center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
                 center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+            print(
+                f"在dispatch_vehicles_with_simplicial_decomposition中，车辆 {v_id} 使道路{vehicle.road}流量+1.路径{vehicle.path}")
 
-            vehicle.drive()
+
+            if cs_id != vehicle.origin:
+                vehicle.drive()
+            else:
+                vehicle.enter_charge()
 
     # 输出路径分配统计信息
     print("\n----- 路径分配统计 -----")
@@ -2140,8 +2151,13 @@ def dispatch_vehicles_with_disaggregated_simplicial_decomposition(center, sol, c
                     center.edges[vehicle.road].capacity["charge"], 1)
             center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
                 center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+            print(f"在dispatch_vehicles_with_disaggregated_simplicial_decomposition中，车辆 {v_id} 使道路{vehicle.road}流量+1.路径{vehicle.path}")
 
-            vehicle.drive()
+
+            if cs_id != vehicle.origin:
+                vehicle.drive()
+            else:
+                vehicle.enter_charge()
 
     # 输出路径分配统计信息
     print("\n----- 路径分配统计 -----")

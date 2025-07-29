@@ -395,6 +395,9 @@ if __name__ == "__main__":
             # print("我真是要吐了")
             for edge in center.edges.values():
                 print(f"{edge.id} : {edge.capacity}, {edge.k}, {edge.calculate_time()}")
+                if edge.capacity['all'][0] < 0 or edge.capacity['all'][1] < 0:
+                    print(f"我是神里绫华的狗，边{edge.id}的容量异常：{edge.capacity['all']}")
+
 
 
             for cs in center.charge_stations.values():
@@ -419,29 +422,29 @@ if __name__ == "__main__":
                 center.vehicles[vehicle_id].drive()
             center.delay_vehicles[i].clear()
 
-        # for vehicle in center.vehicles:
-        #     if not vehicle.delay:
-        #         if vehicle.charging == False and vehicle.is_wait > 0:
-        #             vehicle.wait(vehicle.road, vehicle.next_road)
-        #         elif vehicle.charging:
-        #             continue
-        #         elif vehicle.road != -1:
-        #             vehicle.drive(vehicle.road)
+        for vehicle in center.vehicles:
+            if not vehicle.delay:
+                if vehicle.charging == False and vehicle.is_wait > 0:
+                    vehicle.wait(vehicle.road, vehicle.next_road)
+                elif vehicle.charging:
+                    continue
+                elif vehicle.road != -1:
+                    vehicle.drive(vehicle.road)
 
         # 在主循环中使用
-        print(f"已有车辆驾驶并行化处理...")
-        vehicles_list = center.vehicles
-        vehicle_batches = [vehicles_list[i:i + 100] for i in range(0, len(vehicles_list), 100)]
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(process_vehicle_batch, batch, center, i) for batch in vehicle_batches]
-
-            # 收集结果
-            for future in concurrent.futures.as_completed(futures):
-                batch_results = future.result()
-                # for vid, updated_vehicle in batch_results:
-                #     # 更新中心的车辆状态
-                #     center.vehicles[vid] = updated_vehicle
+        # print(f"已有车辆驾驶并行化处理...")
+        # vehicles_list = [v for v in center.vehicles if v.road != -1 and not v.delay]
+        # vehicle_batches = [vehicles_list[i:i + 100] for i in range(0, len(vehicles_list), 100)]
+        #
+        # with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        #     futures = [executor.submit(process_vehicle_batch, batch, center, i) for batch in vehicle_batches]
+        #
+        #     # 收集结果
+        #     for future in concurrent.futures.as_completed(futures):
+        #         batch_results = future.result()
+        #         # for vid, updated_vehicle in batch_results:
+        #         #     # 更新中心的车辆状态
+        #         #     center.vehicles[vid] = updated_vehicle
 
 
 
@@ -505,8 +508,7 @@ if __name__ == "__main__":
                     if charge_num == 0:
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity["all"], 1)
-                        if new_vehicle.log:
-                            print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
+                        print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1，路径为{true_path}')
                         center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity[next], 1)
                         flow_ind = i
@@ -552,8 +554,7 @@ if __name__ == "__main__":
                     if charge_num == 0:
                         center.edges[true_path[0]].capacity['all'] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity["all"], 1)
-                        if new_vehicle.log:
-                            print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1')
+                        print(f'在车辆{new_vehicle.id}初始化中道路{true_path[0]}总流量+1，路径为{true_path}')
                         center.edges[true_path[0]].capacity[next] = new_vehicle.center.solve_tuple(
                             center.edges[true_path[0]].capacity[next], 1)
                     center.vehicles.append(new_vehicle)
@@ -672,7 +673,7 @@ if __name__ == "__main__":
             #     print(center.vehicles[id].id, center.vehicles[id].origin, center.vehicles[id].destination, center.vehicles[id].anxiety)
             print(cnt_charge_od)
             print(cnt_anxiety_charge_od)
-            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 50, 4, 4, lmp_dict, 250, cnt_charge_od, cnt_anxiety_charge_od)
+            center.dispatch_promax(i, center, real_path_results, charge_v, charge_od, 12, 2, 2, lmp_dict, 2, cnt_charge_od, cnt_anxiety_charge_od)
             #毕设用的种群大小50，进化代数250
 
         for cs in center.charge_stations.values():

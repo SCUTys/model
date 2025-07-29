@@ -91,8 +91,95 @@ def process_text_file_to_csv(input_filename='input.txt', output_filename='output
         print(f"写入CSV时发生未知错误: {e}")
 
 
+import re
+
+
+def process_file(input_file, output_file, max_lines=3396098):
+    # 步骤1：提取前max_lines行中包含"道路9"的行
+    extracted_lines = []
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line_num, line in enumerate(f, 1):
+            if line_num > max_lines:
+                break
+            if "道路53" in line:
+                extracted_lines.append(line.strip())
+
+    # 步骤2：处理每一行
+    processed_lines = []
+    for line in extracted_lines:
+        if "车辆" in line:
+            # 使用正则表达式在"车辆"后的数字前后添加空格
+            processed_line = re.sub(r'(车辆\s*)(\d+)', r'\1 \2 ', line)
+            processed_lines.append(processed_line)
+        else:
+            processed_lines.append(line)
+
+    # 步骤3：输出到文件
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for line in processed_lines:
+            f.write(line + '\n')
+
+
+def calculate_contributions(input_file, output_file):
+    # 初始化贡献字典
+    contributions = {}
+
+    # 读取文件并处理每一行
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            # 查找所有"车辆 XXXX "模式
+            matches = re.finditer(r'车辆\s+(\d+)\s', line)
+            for match in matches:
+                vehicle_num = match.group(1)
+
+                # 初始化贡献值为0（如果尚未存在）
+                if vehicle_num not in contributions:
+                    contributions[vehicle_num] = 0
+
+                # 检查行中是否有+1或-1
+                if '+1' in line:
+                    contributions[vehicle_num] += 1
+                elif '-1' in line:
+                    contributions[vehicle_num] -= 1
+
+    # 按车辆数字排序（如果需要）
+    sorted_contributions = sorted(contributions.items(), key=lambda x: int(x[0]))
+
+    # 写入输出文件
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for vehicle_num, contribution in sorted_contributions:
+            f.write(f"{vehicle_num}: {contribution}\n")
+
+
+def filter_negative_contributions(input_file, output_file):
+    negative_vehicles = []
+
+    # 读取贡献统计文件
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            parts = line.strip().split(': ')
+            if len(parts) == 2:
+                vehicle_num = parts[0]
+                contribution = int(parts[1])
+                if contribution < 0:
+                    negative_vehicles.append((vehicle_num, contribution))
+
+    # 写入负贡献车辆到新文件
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for vehicle_num, contribution in negative_vehicles:
+            f.write(f"{vehicle_num}: {contribution}\n")
+
+
+
+
+
 # --- 如何使用 ---
 if __name__ == '__main__':
     # 假设您的文本文件名为 'input.txt'
     # 假设您希望生成的CSV文件名为 'output.csv'
-    process_text_file_to_csv(r'C:\Users\30288\AppData\Local\Temp\Mxt251\RemoteFiles\4656612_4_7\UUUZQMODE.out', r'C:\Users\30288\OneDrive\Desktop\ctmd\UUUZQMODE1.csv')
+    # process_text_file_to_csv(r'C:\Users\30288\AppData\Local\Temp\Mxt251\RemoteFiles\4656612_4_7\UUUZQMODE.out', r'C:\Users\30288\OneDrive\Desktop\ctmd\UUUZQMODE1.csv')
+
+    # process_file(r"C:\Users\30288\AppData\Local\Temp\Mxt251\RemoteFiles\393288_2_38\tt.out", r"C:\Users\30288\OneDrive\Desktop\ctmd\53.txt")
+
+    # calculate_contributions(r"C:\Users\30288\OneDrive\Desktop\ctmd\9.txt", r"C:\Users\30288\OneDrive\Desktop\ctmd\99.txt")
+    filter_negative_contributions(r"C:\Users\30288\OneDrive\Desktop\ctmd\99.txt", r"C:\Users\30288\OneDrive\Desktop\ctmd\999.txt")

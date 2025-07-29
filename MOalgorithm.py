@@ -764,10 +764,14 @@ def dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, r
                         center.edges[vehicle.road].capacity["charge"], 1)
                 center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
                         center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                print(f"在dispatch_vehicles_by_mopso中，车辆 {vehicle_id} 使道路{vehicle.road}流量+1，路径为 {vehicle.path}")
 
                 # 开始行驶
                 print(f"Vehicle {vehicle_id} assigned to CS {cs_id} with path {vehicle.path}")
-                vehicle.drive()
+                if cs_id != vehicle.origin:
+                    vehicle.drive()
+                else:
+                    vehicle.enter_charge()
 
         od_idx += 1
 
@@ -863,9 +867,14 @@ def dispatch_vehicles_by_mopso(center, REP, charge_v, OD_ratio, cs_for_choice, r
                     if vehicle.next_road != -1:
                         center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
                             center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                    print(
+                        f"在dispatch_vehicles_by_mopso中，车辆 {vehicle_id} 使道路{vehicle.road}流量+1，路径为 {vehicle.path}")
 
                     # 开始行驶
-                    vehicle.drive()
+                    if cs_id != vehicle.origin:
+                        vehicle.drive()
+                    else:
+                        vehicle.enter_charge()
 
             od_idx += 1
 

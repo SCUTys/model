@@ -696,7 +696,7 @@ def rand_1(index, population, beta=0.4):
 
 def rand_2(index, population, beta1=0.4, beta2=0.4):
     ind = population[index]
-    indices = select_random_indices(len(ind), 4, index)
+    indices = select_random_indices(len(population), 4, index)
 
     mu = [ind[i] + beta1 * (population[indices[0]][i] - population[indices[1]][i])
             + beta2 * (population[indices[2]][i] - population[indices[3]][i])
@@ -1259,12 +1259,16 @@ def dispatch_all_ccMODE(center, real_path_results, charge_v, num_population, num
                             center.edges[vehicle.road].capacity["charge"], 1)
                     center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
                         center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                    print(f"在dispatch_all_ccMODE中，车辆 {vid} 使道路{vehicle.road}流量+1，路径: {vehicle.path}")
 
                     v_no.pop(0)
                     total_vn -= 1
                     # print(f"total_vn: {total_vn}, i:{i}, j: {j}, k: {k}")
                     # print(f"Vehicle {vehicle_id} assigned to CS {cs_id} with path {vehicle.path}")
-                    vehicle.drive()
+                    if cs_id != vehicle.origin:
+                        vehicle.drive()
+                    else:
+                        vehicle.enter_charge()
                     if total_vn == 0: break
 
                 if total_vn == 0: break
@@ -1697,13 +1701,17 @@ def dispatch_all_ccMODE_parallel(center, real_path_results, charge_v, num_popula
                             center.edges[vehicle.road].capacity["charge"], 1)
                     center.edges[vehicle.road].capacity[vehicle.next_road] = center.solve_tuple(
                         center.edges[vehicle.road].capacity[vehicle.next_road], 1)
+                    print(f"在dispatch_all_ccMODE中，车辆 {vid} 使道路{vehicle.road}流量+1，路径: {vehicle.path}")
 
                     v_no.pop(0)
                     total_vn -= 1
                     print(f"total_vn: {total_vn}, i:{i}, j: {j}, k: {k}")
                     drive_cnt += 1
                     # print(f"Vehicle {vehicle_id} assigned to CS {cs_id} with path {vehicle.path}")
-                    vehicle.drive()
+                    if cs_id != vehicle.origin:
+                        vehicle.drive()
+                    else:
+                        vehicle.enter_charge()
                     if total_vn == 0: break
 
                 if total_vn == 0: break
